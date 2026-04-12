@@ -2,6 +2,9 @@
 #
 # Gitbacker installer — self-hosted git backup tool
 #
+#   bash -c "$(curl -fsSL https://gitbacker.com/install.sh)"
+#
+# Or:
 #   curl -fsSL https://gitbacker.com/install.sh | bash
 #
 # What this does:
@@ -13,6 +16,17 @@
 #   6. Prints the URL to access Gitbacker
 #
 set -euo pipefail
+
+# When piped via "curl | bash", stdin is the download stream — docker commands
+# that expect a TTY will break. Redirect stdin from the terminal if available,
+# otherwise from /dev/null.
+if [ ! -t 0 ]; then
+  if [ -e /dev/tty ]; then
+    exec < /dev/tty
+  else
+    exec < /dev/null
+  fi
+fi
 
 REPO="https://raw.githubusercontent.com/gitbckr/gitbacker/main"
 INSTALL_DIR="${GITBACKER_DIR:-$HOME/gitbacker}"
@@ -109,7 +123,7 @@ VERSION="$VERSION" docker compose up -d
 wait_for_healthy "http://localhost:8000/api/health"
 
 info "Creating admin account..."
-docker compose exec -e ADMIN_PASSWORD="$ADMIN_PASSWORD" api python seed_admin.py
+docker compose exec -T -e ADMIN_PASSWORD="$ADMIN_PASSWORD" api python seed_admin.py
 
 ok "Gitbacker is running!"
 echo ""
@@ -120,5 +134,5 @@ echo ""
 echo "  Credentials saved to: $INSTALL_DIR/.admin-credentials"
 echo ""
 echo "  To stop:    cd $INSTALL_DIR && docker compose down"
-echo "  To update:  curl -fsSL https://gitbacker.com/install.sh | bash"
+echo "  To update:  bash -c \"\$(curl -fsSL https://gitbacker.com/install.sh)\""
 echo ""

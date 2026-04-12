@@ -2,6 +2,9 @@
 #
 # Gitbacker installer — self-hosted git backup tool
 #
+#   bash -c "$(curl -fsSL https://gitbacker.com/install.sh)"
+#
+# Or:
 #   curl -fsSL https://gitbacker.com/install.sh | bash
 #
 # What this does:
@@ -13,6 +16,17 @@
 #   6. Prints the URL to access Gitbacker
 #
 set -euo pipefail
+
+# When piped via "curl | bash", stdin is the download stream — docker commands
+# that expect a TTY will break. Redirect stdin from the terminal if available,
+# otherwise from /dev/null.
+if [ ! -t 0 ]; then
+  if [ -e /dev/tty ]; then
+    exec < /dev/tty
+  else
+    exec < /dev/null
+  fi
+fi
 
 REPO="https://raw.githubusercontent.com/gitbckr/gitbacker/main"
 INSTALL_DIR="${GITBACKER_DIR:-$HOME/gitbacker}"
@@ -30,7 +44,6 @@ check_command() {
 }
 
 random_secret() {
-  # 32 bytes, base64-encoded, URL-safe
   head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 43
 }
 
@@ -81,11 +94,9 @@ curl -fsSL "$REPO/.env.example" -o .env
 JWT_SECRET=$(random_secret)
 ADMIN_PASSWORD=$(random_secret | head -c 16)
 
-# Patch .env with generated secrets
 sed -i.bak "s|^JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|" .env
 rm -f .env.bak
 
-# Write admin credentials to a separate file (not in .env to avoid leaking via docker env)
 cat > .admin-credentials <<CREDS
 Gitbacker Admin Credentials
 ============================
@@ -112,7 +123,7 @@ VERSION="$VERSION" docker compose up -d
 wait_for_healthy "http://localhost:8000/api/health"
 
 info "Creating admin account..."
-docker compose exec -e ADMIN_PASSWORD="$ADMIN_PASSWORD" api python seed_admin.py
+docker compose exec -T -e ADMIN_PASSWORD="$ADMIN_PASSWORD" api python seed_admin.py
 
 ok "Gitbacker is running!"
 echo ""
@@ -123,5 +134,5 @@ echo ""
 echo "  Credentials saved to: $INSTALL_DIR/.admin-credentials"
 echo ""
 echo "  To stop:    cd $INSTALL_DIR && docker compose down"
-echo "  To update:  curl -fsSL https://gitbacker.com/install.sh | bash"
+echo "  To update:  bash -c \"\$(curl -fsSL https://gitbacker.com/install.sh)\""
 echo ""
