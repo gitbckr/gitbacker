@@ -1,3 +1,10 @@
+## [0.6.2](https://github.com/gitbckr/gitbacker/compare/v0.6.1...v0.6.2) (2026-04-12)
+
+
+### Bug Fixes
+
+* remove tracked celerybeat-schedule.db and fix gitignore pattern ([c5fc393](https://github.com/gitbckr/gitbacker/commit/c5fc39303ea7853f5235f5d4ea2249d7af2f7dbf))
+
 ## [0.6.1](https://github.com/gitbckr/gitbacker/compare/v0.6.0...v0.6.1) (2026-04-12)
 
 
