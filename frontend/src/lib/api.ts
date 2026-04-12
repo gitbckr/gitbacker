@@ -21,6 +21,15 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   });
 
   if (!res.ok) {
+    // Token expired or revoked — clear auth and redirect to login.
+    // Only triggers for authenticated requests (opts.token is set),
+    // so login failures (no token) are handled normally below.
+    if (res.status === 401 && opts.token) {
+      localStorage.removeItem("gitbacker_token");
+      localStorage.removeItem("gitbacker_refresh");
+      window.location.href = "/login";
+      throw new ApiError(401, "Session expired");
+    }
     const detail = await res.json().catch(() => ({ detail: res.statusText }));
     throw new ApiError(res.status, detail.detail ?? "Request failed");
   }
