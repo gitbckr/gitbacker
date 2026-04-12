@@ -1,3 +1,10 @@
+# [0.7.0](https://github.com/gitbckr/gitbacker/compare/v0.6.2...v0.7.0) (2026-04-12)
+
+
+### Features
+
+* interactive dashboard with storage overview and version display ([d105a0c](https://github.com/gitbckr/gitbacker/commit/d105a0cd65711c5583e64a69d9348b80d3e7b7e0))
+
 ## [0.6.2](https://github.com/gitbckr/gitbacker/compare/v0.6.1...v0.6.2) (2026-04-12)
 
 
