@@ -10,7 +10,12 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/app-shell";
-import { listRepositories, listDestinations, getBackupActivity } from "@/lib/api";
+import {
+  listRepositories,
+  listDestinations,
+  getBackupActivity,
+  type Destination,
+} from "@/lib/api";
 import { BackupHeatmap } from "@/components/backup-heatmap";
 import {
   Card,
@@ -18,6 +23,127 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
+  const i = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(k)),
+    sizes.length - 1,
+  );
+  return `${(bytes / Math.pow(k, i)).toFixed(i > 0 ? 1 : 0)} ${sizes[i]}`;
+}
+
+function storageBarColor(pct: number): string {
+  if (pct > 90) return "bg-red-500";
+  if (pct > 70) return "bg-amber-500";
+  return "bg-emerald-500";
+}
+
+function StorageOverview({ destinations }: { destinations: Destination[] }) {
+  const totalUsed = destinations.reduce((s, d) => s + d.used_bytes, 0);
+  const withCapacity = destinations.filter(
+    (d) => d.available_bytes != null && d.available_bytes > 0,
+  );
+  const totalCapacity =
+    withCapacity.length > 0
+      ? withCapacity.reduce(
+          (s, d) => s + d.used_bytes + (d.available_bytes ?? 0),
+          0,
+        )
+      : null;
+  const overallPct =
+    totalCapacity != null && totalCapacity > 0
+      ? (totalUsed / totalCapacity) * 100
+      : null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          Storage Usage
+        </CardTitle>
+        <Link
+          href="/destinations"
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          View all
+        </Link>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Overall summary */}
+        <div>
+          <div className="flex items-baseline justify-between mb-1.5">
+            <span className="text-2xl font-bold">
+              {formatBytes(totalUsed)}
+            </span>
+            {totalCapacity != null && (
+              <span className="text-sm text-muted-foreground">
+                of {formatBytes(totalCapacity)}
+              </span>
+            )}
+          </div>
+          {overallPct != null && (
+            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${storageBarColor(overallPct)}`}
+                style={{ width: `${Math.min(overallPct, 100)}%` }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Per-destination breakdown */}
+        {destinations.length > 0 && (
+          <div className="space-y-2.5 pt-1">
+            {destinations.map((d) => {
+              const cap =
+                d.available_bytes != null
+                  ? d.used_bytes + d.available_bytes
+                  : null;
+              const pct =
+                cap != null && cap > 0
+                  ? (d.used_bytes / cap) * 100
+                  : null;
+              return (
+                <div key={d.id} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground truncate max-w-[60%]">
+                      {d.alias}
+                    </span>
+                    <span className="text-muted-foreground tabular-nums">
+                      {formatBytes(d.used_bytes)}
+                      {cap != null && (
+                        <span className="text-muted-foreground/60">
+                          {" "}/ {formatBytes(cap)}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  {pct != null && (
+                    <div className="h-1 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${storageBarColor(pct)}`}
+                        style={{ width: `${Math.min(pct, 100)}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {destinations.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            No destinations configured.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function DashboardPage() {
   const { token } = useAuth();
@@ -54,6 +180,7 @@ export default function DashboardPage() {
       icon: GitBranch,
       color: "text-foreground",
       iconColor: "text-slate-500",
+      href: "/repos",
     },
     {
       label: "Backed Up",
@@ -61,6 +188,7 @@ export default function DashboardPage() {
       icon: CheckCircle2,
       color: "text-emerald-600",
       iconColor: "text-emerald-500",
+      href: "/repos",
     },
     {
       label: "Failed",
@@ -68,6 +196,7 @@ export default function DashboardPage() {
       icon: XCircle,
       color: "text-red-600",
       iconColor: "text-red-500",
+      href: "/repos",
     },
     {
       label: "Destinations",
@@ -75,6 +204,7 @@ export default function DashboardPage() {
       icon: HardDrive,
       color: "text-foreground",
       iconColor: "text-slate-500",
+      href: "/destinations",
     },
   ];
 
@@ -85,35 +215,41 @@ export default function DashboardPage() {
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
-            <Card key={stat.label}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.label}
-                </CardTitle>
-                <stat.icon className={`h-4 w-4 ${stat.iconColor}`} />
-              </CardHeader>
-              <CardContent>
-                <p className={`text-3xl font-bold ${stat.color}`}>
-                  {stat.value}
-                </p>
-              </CardContent>
-            </Card>
+            <Link key={stat.label} href={stat.href}>
+              <Card className="hover:border-foreground/20 transition-colors cursor-pointer h-full">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {stat.label}
+                  </CardTitle>
+                  <stat.icon className={`h-4 w-4 ${stat.iconColor}`} />
+                </CardHeader>
+                <CardContent>
+                  <p className={`text-3xl font-bold ${stat.color}`}>
+                    {stat.value}
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Backup Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BackupHeatmap
-              data={activity.data ?? []}
-              isLoading={activity.isLoading}
-            />
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Backup Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-hidden">
+              <BackupHeatmap
+                data={activity.data ?? []}
+                isLoading={activity.isLoading}
+              />
+            </CardContent>
+          </Card>
+
+          <StorageOverview destinations={destinations.data ?? []} />
+        </div>
 
         {(repos.isError || destinations.isError) && (
           <Card className="border-red-200 bg-red-50">

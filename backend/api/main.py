@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +8,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db import engine
 from app.routers import auth, dashboard, destinations, encryption_keys, git_credentials, notification_channels, repositories, restore, settings, users
 from shared.models import Base
+
+
+def _read_version() -> str:
+    """Read version from VERSION file at repo root."""
+    for candidate in [
+        Path(__file__).resolve().parent.parent.parent / "VERSION",  # dev: backend/api/main.py → repo root
+        Path("/app/VERSION"),  # Docker
+    ]:
+        if candidate.is_file():
+            return candidate.read_text().strip()
+    return "0.0.0"
 
 
 @asynccontextmanager
@@ -18,7 +30,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await engine.dispose()
 
 
-app = FastAPI(title="Gitbacker API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Gitbacker API", version=_read_version(), lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,4 +54,4 @@ app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"]
 
 @app.get("/api/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "version": app.version}

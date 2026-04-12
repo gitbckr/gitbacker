@@ -126,11 +126,10 @@ export function BackupHeatmap({ data, isLoading }: Props) {
   return (
     <div className="space-y-3">
       <TooltipProvider>
-        <div className="overflow-x-auto">
+        <div>
           <svg
-            width={svgWidth}
-            height={svgHeight}
-            className="block"
+            viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+            className="block w-full h-auto"
             role="img"
             aria-label="Backup activity heatmap"
           >

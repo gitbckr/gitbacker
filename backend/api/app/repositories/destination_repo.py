@@ -70,7 +70,7 @@ async def get_stats(
         .group_by(Repository.destination_id)
     )
     used_bytes: dict[uuid.UUID, int] = {
-        row[0]: row[1] for row in size_result.all()
+        row[0]: int(row[1]) for row in size_result.all()
     }
 
     stats: dict[uuid.UUID, dict] = {}

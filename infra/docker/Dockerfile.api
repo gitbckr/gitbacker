@@ -19,6 +19,7 @@ FROM python:3.12-slim
 COPY --from=builder /app/backend/api/.venv /app/backend/api/.venv
 
 # Copy source code
+COPY VERSION /app/VERSION
 COPY backend/shared/ /app/backend/shared/
 COPY backend/api/ /app/backend/api/
 

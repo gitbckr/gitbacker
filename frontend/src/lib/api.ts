@@ -418,6 +418,12 @@ export function updateSettings(
   return request("/settings", { method: "PATCH", body: data, token });
 }
 
+// --- Health ---
+
+export function getHealth(): Promise<{ status: string; version: string }> {
+  return request("/health", {});
+}
+
 // --- Dashboard ---
 
 export type DailyActivity = {

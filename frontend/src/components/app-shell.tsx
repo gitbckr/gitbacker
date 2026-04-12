@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { getHealth } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard" },
@@ -17,12 +18,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const [version, setVersion] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push("/login");
     }
   }, [isLoading, user, router]);
+
+  useEffect(() => {
+    getHealth()
+      .then((h) => setVersion(h.version))
+      .catch(() => {});
+  }, []);
 
   if (isLoading) {
     return (
@@ -60,6 +68,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">{user.email}</span>
+            {version && (
+              <span className="text-xs text-muted-foreground/60 font-mono">
+                v{version}
+              </span>
+            )}
             <Button variant="ghost" size="sm" onClick={logout}>
               Logout
             </Button>
