@@ -1,3 +1,10 @@
+## [0.6.1](https://github.com/gitbckr/gitbacker/compare/v0.6.0...v0.6.1) (2026-04-12)
+
+
+### Bug Fixes
+
+* install script stdin handling for curl-pipe-bash and iTerm ([f37c963](https://github.com/gitbckr/gitbacker/commit/f37c963e88653cce3bfdeaa3df5b8772b0e74f16))
+
 # [0.6.0](https://github.com/gitbckr/gitbacker/compare/v0.5.2...v0.6.0) (2026-04-12)
 
 
