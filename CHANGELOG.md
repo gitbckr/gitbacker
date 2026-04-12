@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/gitbckr/gitbacker/compare/v0.5.2...v0.6.0) (2026-04-12)
+
+
+### Features
+
+* add one-liner install script and landing page for gitbacker.com ([00e6b20](https://github.com/gitbckr/gitbacker/commit/00e6b200641a8434d3540405de5d0f43252e48b6))
+
 # Changelog
 
 ## [0.5.0](https://github.com/gitbckr/gitbacker/releases/tag/v0.5.0) (2026-04-12)
