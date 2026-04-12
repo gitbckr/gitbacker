@@ -1,0 +1,15 @@
+.git
+.github
+**/node_modules
+**/.venv
+**/__pycache__
+**/.next
+**/dist
+**/.pytest_cache
+**/.ruff_cache
+*.md
+!frontend/README.md
+.env
+.env.*
+infra/.env
+infra/docker-compose.dev.yml

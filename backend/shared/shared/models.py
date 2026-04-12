@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -9,9 +10,9 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
-    BigInteger,
     UniqueConstraint,
     text,
 )
@@ -20,9 +21,12 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from .enums import (
+    ArchiveFormat,
+    CredentialType,
     EncryptionBackend,
     IdentityProvider,
     JobStatus,
+    NotificationChannelType,
     RepoPermission,
     RepoStatus,
     StorageType,
@@ -54,9 +58,9 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    identities: Mapped[list["UserIdentity"]] = relationship(back_populates="user")
+    identities: Mapped[list["UserIdentity"]] = relationship(back_populates="user", passive_deletes=True)
     repositories: Mapped[list["Repository"]] = relationship(back_populates="created_by_user")
-    permissions: Mapped[list["RepoPermissionEntry"]] = relationship(back_populates="user")
+    permissions: Mapped[list["RepoPermissionEntry"]] = relationship(back_populates="user", passive_deletes=True)
 
 
 class UserIdentity(Base):
@@ -141,8 +145,14 @@ class Repository(Base):
 
     destination: Mapped["Destination"] = relationship(back_populates="repositories")
     created_by_user: Mapped["User"] = relationship(back_populates="repositories")
-    backup_jobs: Mapped[list["BackupJob"]] = relationship(back_populates="repository")
-    permissions: Mapped[list["RepoPermissionEntry"]] = relationship(back_populates="repository")
+    backup_jobs: Mapped[list["BackupJob"]] = relationship(back_populates="repository", passive_deletes=True)
+    snapshots: Mapped[list["BackupSnapshot"]] = relationship(
+        back_populates="repository",
+        order_by="BackupSnapshot.created_at.desc()",
+        passive_deletes=True,
+    )
+    restore_jobs: Mapped[list["RestoreJob"]] = relationship(back_populates="repository", passive_deletes=True)
+    permissions: Mapped[list["RepoPermissionEntry"]] = relationship(back_populates="repository", passive_deletes=True)
 
 
 class BackupJob(Base):
@@ -174,6 +184,137 @@ class BackupJob(Base):
     )
 
     repository: Mapped["Repository"] = relationship(back_populates="backup_jobs")
+    snapshot: Mapped["BackupSnapshot | None"] = relationship(
+        back_populates="backup_job", uselist=False, passive_deletes=True
+    )
+
+
+class BackupSnapshot(Base):
+    __tablename__ = "backup_snapshots"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    repository_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    backup_job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("backup_jobs.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    destination_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("destinations.id", ondelete="RESTRICT"), nullable=False
+    )
+    artifact_filename: Mapped[str] = mapped_column(String(512), nullable=False)
+    archive_format: Mapped[ArchiveFormat] = mapped_column(
+        Enum(ArchiveFormat), nullable=False
+    )
+    encryption_key_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("encryption_keys.id", ondelete="SET NULL"), nullable=True
+    )
+    label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    repository: Mapped["Repository"] = relationship(back_populates="snapshots")
+    backup_job: Mapped["BackupJob"] = relationship(back_populates="snapshot")
+    destination: Mapped["Destination"] = relationship()
+    encryption_key: Mapped["EncryptionKey | None"] = relationship()
+
+
+class RestoreJob(Base):
+    __tablename__ = "restore_jobs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    repository_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    snapshot_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("backup_snapshots.id", ondelete="CASCADE"), nullable=False
+    )
+    triggered_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    restore_target_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    status: Mapped[JobStatus] = mapped_column(
+        Enum(JobStatus), nullable=False, default=JobStatus.PENDING
+    )
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_log: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    repository: Mapped["Repository"] = relationship(back_populates="restore_jobs")
+    snapshot: Mapped["BackupSnapshot"] = relationship()
+    triggered_by_user: Mapped["User"] = relationship()
+
+
+class GitCredential(Base):
+    __tablename__ = "git_credentials"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    credential_type: Mapped[CredentialType] = mapped_column(
+        Enum(CredentialType), nullable=False
+    )
+    host: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    username: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="x-access-token"
+    )
+    credential_data: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    created_by_user: Mapped["User"] = relationship()
+
+
+class NotificationChannel(Base):
+    __tablename__ = "notification_channels"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    channel_type: Mapped[NotificationChannelType] = mapped_column(
+        Enum(NotificationChannelType), nullable=False
+    )
+    config_data: Mapped[dict] = mapped_column(JSON, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    on_backup_failure: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    on_restore_failure: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    on_repo_verification_failure: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    on_disk_space_low: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    created_by_user: Mapped["User"] = relationship()
 
 
 class EncryptionKey(Base):

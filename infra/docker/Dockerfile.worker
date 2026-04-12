@@ -1,0 +1,33 @@
+# --- Stage 1: Install dependencies ---
+FROM python:3.12-slim AS builder
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Copy shared package first (dependency of backup-core)
+COPY backend/shared/ /app/backend/shared/
+
+# Copy only dependency files for layer caching
+COPY backend/backup-core/pyproject.toml backend/backup-core/uv.lock /app/backend/backup-core/
+
+WORKDIR /app/backend/backup-core
+RUN uv sync --frozen --no-dev
+
+# --- Stage 2: Runtime ---
+FROM python:3.12-slim
+
+# Git is required for backup (clone) and restore (push) operations
+RUN apt-get update && apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy the virtual environment from builder
+COPY --from=builder /app/backend/backup-core/.venv /app/backend/backup-core/.venv
+
+# Copy source code
+COPY backend/shared/ /app/backend/shared/
+COPY backend/backup-core/ /app/backend/backup-core/
+
+WORKDIR /app/backend/backup-core
+ENV PATH="/app/backend/backup-core/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
+
+CMD ["celery", "-A", "worker", "worker", "--beat", "--loglevel=info"]

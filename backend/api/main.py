@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import engine
-from app.routers import auth, dashboard, destinations, encryption_keys, repositories, settings, users
+from app.routers import auth, dashboard, destinations, encryption_keys, git_credentials, notification_channels, repositories, restore, settings, users
 from shared.models import Base
 
 
@@ -32,8 +32,11 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(destinations.router, prefix="/api/destinations", tags=["destinations"])
 app.include_router(repositories.router, prefix="/api/repositories", tags=["repositories"])
+app.include_router(restore.router, prefix="/api/repositories", tags=["restore"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 app.include_router(encryption_keys.router, prefix="/api/encryption-keys", tags=["encryption-keys"])
+app.include_router(git_credentials.router, prefix="/api/git-credentials", tags=["git-credentials"])
+app.include_router(notification_channels.router, prefix="/api/notification-channels", tags=["notification-channels"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 
 

@@ -33,14 +33,14 @@ async def _can_access_repo(db: AsyncSession, user: User, repo: Repository) -> bo
     return perm is not None
 
 
-async def _get_repo_or_404(db: AsyncSession, repo_id: str) -> Repository:
+async def get_repo_or_404(db: AsyncSession, repo_id: str) -> Repository:
     repo = await repository_repo.get_by_id(db, uuid.UUID(repo_id))
     if not repo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found")
     return repo
 
 
-async def _check_access(db: AsyncSession, user: User, repo: Repository) -> None:
+async def check_repo_access(db: AsyncSession, user: User, repo: Repository) -> None:
     if not await _can_access_repo(db, user, repo):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
@@ -142,8 +142,8 @@ async def list_repositories(db: AsyncSession, user: User) -> list[RepoRead]:
 
 
 async def get_repository(db: AsyncSession, user: User, repo_id: str) -> RepoRead:
-    repo = await _get_repo_or_404(db, repo_id)
-    await _check_access(db, user, repo)
+    repo = await get_repo_or_404(db, repo_id)
+    await check_repo_access(db, user, repo)
     enriched = await _enrich_repos(db, [repo])
     return enriched[0]
 
@@ -151,8 +151,8 @@ async def get_repository(db: AsyncSession, user: User, repo_id: str) -> RepoRead
 async def update_repository(
     db: AsyncSession, user: User, repo_id: str, body: RepoUpdate
 ) -> RepoRead:
-    repo = await _get_repo_or_404(db, repo_id)
-    await _check_access(db, user, repo)
+    repo = await get_repo_or_404(db, repo_id)
+    await check_repo_access(db, user, repo)
 
     await repository_repo.update(db, repo, body.model_dump(exclude_unset=True))
     await db.commit()
@@ -162,15 +162,15 @@ async def update_repository(
 
 
 async def delete_repository(db: AsyncSession, user: User, repo_id: str) -> None:
-    repo = await _get_repo_or_404(db, repo_id)
-    await _check_access(db, user, repo)
+    repo = await get_repo_or_404(db, repo_id)
+    await check_repo_access(db, user, repo)
     await repository_repo.delete(db, repo)
     await db.commit()
 
 
 async def trigger_backup(db: AsyncSession, user: User, repo_id: str) -> BackupJob:
-    repo = await _get_repo_or_404(db, repo_id)
-    await _check_access(db, user, repo)
+    repo = await get_repo_or_404(db, repo_id)
+    await check_repo_access(db, user, repo)
 
     job = BackupJob(
         repository_id=repo.id,
@@ -192,6 +192,6 @@ async def trigger_backup(db: AsyncSession, user: User, repo_id: str) -> BackupJo
 async def list_backup_jobs(
     db: AsyncSession, user: User, repo_id: str
 ) -> list[BackupJob]:
-    repo = await _get_repo_or_404(db, repo_id)
-    await _check_access(db, user, repo)
+    repo = await get_repo_or_404(db, repo_id)
+    await check_repo_access(db, user, repo)
     return await backup_job_repo.list_by_repo(db, repo.id)

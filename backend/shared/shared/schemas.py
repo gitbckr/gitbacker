@@ -4,8 +4,11 @@ from datetime import datetime
 from pydantic import BaseModel, EmailStr, field_validator
 
 from .enums import (
+    ArchiveFormat,
+    CredentialType,
     EncryptionBackend,
     JobStatus,
+    NotificationChannelType,
     RepoPermission,
     RepoStatus,
     StorageType,
@@ -153,6 +156,142 @@ class BackupJobRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# --- Backup Snapshots ---
+
+
+class BackupSnapshotRead(BaseModel):
+    id: uuid.UUID
+    repository_id: uuid.UUID
+    backup_job_id: uuid.UUID
+    destination_id: uuid.UUID
+    artifact_filename: str
+    archive_format: ArchiveFormat
+    encryption_key_id: uuid.UUID | None
+    label: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# --- Restore Jobs ---
+
+
+class RestoreJobCreate(BaseModel):
+    snapshot_id: uuid.UUID
+    restore_target_url: str
+
+    @field_validator("restore_target_url")
+    @classmethod
+    def validate_target_url(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("restore_target_url is required")
+        if not v.startswith(("https://", "http://", "git://", "ssh://", "git@")):
+            raise ValueError(f"Invalid URL scheme: {v}")
+        return v
+
+
+class RestoreJobRead(BaseModel):
+    id: uuid.UUID
+    repository_id: uuid.UUID
+    snapshot_id: uuid.UUID
+    triggered_by: uuid.UUID
+    restore_target_url: str
+    status: JobStatus
+    started_at: datetime | None
+    finished_at: datetime | None
+    duration_seconds: int | None
+    output_log: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# --- Git Credentials ---
+
+
+class GitCredentialCreate(BaseModel):
+    name: str
+    credential_type: CredentialType
+    host: str
+    credential_data: str
+    username: str = "x-access-token"
+
+    @field_validator("host")
+    @classmethod
+    def normalize_host(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not v:
+            raise ValueError("host is required")
+        return v
+
+    @field_validator("credential_data")
+    @classmethod
+    def validate_credential_data(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("credential_data is required")
+        return v
+
+
+class GitCredentialRead(BaseModel):
+    id: uuid.UUID
+    name: str
+    credential_type: CredentialType
+    host: str
+    username: str
+    created_by: uuid.UUID
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# --- Notification Channels ---
+
+
+class NotificationChannelCreate(BaseModel):
+    name: str
+    channel_type: NotificationChannelType
+    config_data: dict
+    enabled: bool = True
+    on_backup_failure: bool = True
+    on_restore_failure: bool = True
+    on_repo_verification_failure: bool = True
+    on_disk_space_low: bool = True
+
+    @field_validator("config_data")
+    @classmethod
+    def validate_config(cls, v: dict) -> dict:
+        if not v:
+            raise ValueError("config_data is required")
+        return v
+
+
+class NotificationChannelRead(BaseModel):
+    id: uuid.UUID
+    name: str
+    channel_type: NotificationChannelType
+    config_data: dict
+    enabled: bool
+    on_backup_failure: bool
+    on_restore_failure: bool
+    on_repo_verification_failure: bool
+    on_disk_space_low: bool
+    created_by: uuid.UUID
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class NotificationChannelUpdate(BaseModel):
+    name: str | None = None
+    config_data: dict | None = None
+    enabled: bool | None = None
+    on_backup_failure: bool | None = None
+    on_restore_failure: bool | None = None
+    on_repo_verification_failure: bool | None = None
+    on_disk_space_low: bool | None = None
 
 
 # --- Permissions ---

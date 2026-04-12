@@ -43,3 +43,17 @@ class RepoPermission(enum.IntEnum):
 
 class EncryptionBackend(str, enum.Enum):
     GPG = "gpg"
+
+
+class ArchiveFormat(str, enum.Enum):
+    TAR_GZ = "tar.gz"
+    TAR_GZ_GPG = "tar.gz.gpg"
+
+
+class CredentialType(str, enum.Enum):
+    PAT = "pat"
+    SSH_KEY = "ssh_key"
+
+
+class NotificationChannelType(str, enum.Enum):
+    SLACK = "slack"

@@ -13,8 +13,11 @@ import {
   listDestinations,
   listRepositories,
   triggerBackup,
+  type Repository,
 } from "@/lib/api";
+import { EditRepoDialog } from "@/components/edit-repo-dialog";
 import { RepoStatusBadge } from "@/components/repo-status";
+import { RestoreDialog } from "@/components/restore-dialog";
 import { SchedulePicker } from "@/components/schedule-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -99,6 +102,8 @@ export default function ReposPage() {
   const [cronExpression, setCronExpression] = useState("");
   const [useDefaultSchedule, setUseDefaultSchedule] = useState(false);
   const [encrypt, setEncrypt] = useState<boolean | undefined>(undefined);
+  const [editingRepo, setEditingRepo] = useState<Repository | null>(null);
+  const [restoringRepo, setRestoringRepo] = useState<Repository | null>(null);
 
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -353,6 +358,15 @@ export default function ReposPage() {
                           >
                             Run now
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEditingRepo(repo)}>
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={!repo.last_backup_at}
+                            onClick={() => setRestoringRepo(repo)}
+                          >
+                            Restore...
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => router.push(`/repos/${repo.id}`)}
                           >
@@ -377,6 +391,22 @@ export default function ReposPage() {
             </TableBody>
           </Table>
         )}
+
+        <EditRepoDialog
+          repo={editingRepo}
+          destinations={destinations}
+          settings={settings}
+          onOpenChange={(next) => {
+            if (!next) setEditingRepo(null);
+          }}
+        />
+
+        <RestoreDialog
+          repo={restoringRepo}
+          onOpenChange={(next) => {
+            if (!next) setRestoringRepo(null);
+          }}
+        />
       </div>
     </AppShell>
   );

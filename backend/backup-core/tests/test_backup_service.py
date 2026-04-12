@@ -38,7 +38,7 @@ def test_run_backup_success(mock_git, db_session, repository, backup_job, destin
     repository.status = RepoStatus.SCHEDULED
     db_session.flush()
 
-    def clone_side_effect(url, dest_path):
+    def clone_side_effect(url, dest_path, credential=None):
         os.makedirs(dest_path, exist_ok=True)
         with open(os.path.join(dest_path, "HEAD"), "w") as f:
             f.write("ref: refs/heads/main\n")
@@ -108,7 +108,7 @@ def test_run_backup_with_encryption(
     repository.encrypt = True
     db_session.flush()
 
-    def clone_side_effect(url, dest_path):
+    def clone_side_effect(url, dest_path, credential=None):
         os.makedirs(dest_path, exist_ok=True)
         with open(os.path.join(dest_path, "HEAD"), "w") as f:
             f.write("ref: refs/heads/main\n")
@@ -146,7 +146,7 @@ def test_run_backup_encrypt_no_key_configured(
     db_session.flush()
     # No GlobalSettings row exists, so no key is configured
 
-    def clone_side_effect(url, dest_path):
+    def clone_side_effect(url, dest_path, credential=None):
         os.makedirs(dest_path, exist_ok=True)
         with open(os.path.join(dest_path, "HEAD"), "w") as f:
             f.write("ref: refs/heads/main\n")
@@ -170,7 +170,7 @@ def test_run_backup_no_encrypt(
     repository.encrypt = False
     db_session.flush()
 
-    def clone_side_effect(url, dest_path):
+    def clone_side_effect(url, dest_path, credential=None):
         os.makedirs(dest_path, exist_ok=True)
         with open(os.path.join(dest_path, "HEAD"), "w") as f:
             f.write("ref: refs/heads/main\n")

@@ -1,0 +1,82 @@
+# Production docker-compose for self-hosting Gitbacker.
+#
+# Usage:
+#   cp .env.example .env   # fill in your secrets
+#   docker compose up -d
+#
+# Pin a specific release:
+#   VERSION=1.2.3 docker compose up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gitbacker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gitbacker}
+      POSTGRES_DB: ${POSTGRES_DB:-gitbacker}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gitbacker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/gitbckr/gitbacker-api:${VERSION:-latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-gitbacker}:${POSTGRES_PASSWORD:-gitbacker}@postgres:5432/${POSTGRES_DB:-gitbacker}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      ENVIRONMENT: production
+    ports:
+      - "${API_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  worker:
+    image: ghcr.io/gitbckr/gitbacker-worker:${VERSION:-latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-gitbacker}:${POSTGRES_PASSWORD:-gitbacker}@postgres:5432/${POSTGRES_DB:-gitbacker}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - backup-data:/data/backups
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/gitbckr/gitbacker-frontend:${VERSION:-latest}
+    depends_on:
+      - api
+    environment:
+      INTERNAL_API_URL: http://api:8000
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  backup-data:

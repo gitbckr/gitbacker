@@ -1,5 +1,5 @@
 from db import SessionLocal
-from services import backup_service, scheduler_service
+from services import backup_service, restore_service, scheduler_service
 from worker import app
 
 
@@ -21,3 +21,9 @@ def scan_due_repos() -> dict:
     with SessionLocal() as session:
         job_ids = scheduler_service.dispatch_scheduled_backups(session)
     return {"dispatched": len(job_ids), "job_ids": job_ids}
+
+
+@app.task(name="backup_core.tasks.run_restore")
+def run_restore(restore_job_id: str) -> dict:
+    with SessionLocal() as session:
+        return restore_service.run_restore(session, restore_job_id)

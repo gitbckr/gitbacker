@@ -1,0 +1,31 @@
+# --- Stage 1: Install dependencies ---
+FROM python:3.12-slim AS builder
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Copy shared package first (dependency of api)
+COPY backend/shared/ /app/backend/shared/
+
+# Copy only dependency files for layer caching
+COPY backend/api/pyproject.toml backend/api/uv.lock /app/backend/api/
+
+WORKDIR /app/backend/api
+RUN uv sync --frozen --no-dev
+
+# --- Stage 2: Runtime ---
+FROM python:3.12-slim
+
+# Copy the virtual environment from builder
+COPY --from=builder /app/backend/api/.venv /app/backend/api/.venv
+
+# Copy source code
+COPY backend/shared/ /app/backend/shared/
+COPY backend/api/ /app/backend/api/
+
+WORKDIR /app/backend/api
+ENV PATH="/app/backend/api/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
