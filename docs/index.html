@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gitbacker — Self-hosted git backup tool</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --fg: #ededed;
+      --muted: #888;
+      --accent: #3b82f6;
+      --code-bg: #1a1a2e;
+      --border: #222;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .container { max-width: 640px; text-align: center; }
+    h1 { font-size: 3rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.5rem; }
+    .tagline { color: var(--muted); font-size: 1.15rem; margin-bottom: 2.5rem; line-height: 1.5; }
+    .install-box {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+      position: relative;
+      text-align: left;
+    }
+    .install-box code {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.9rem;
+      color: var(--fg);
+      word-break: break-all;
+    }
+    .install-box .prefix { color: var(--accent); }
+    .copy-btn {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .copy-btn:hover { color: var(--fg); border-color: var(--muted); }
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      text-align: left;
+      margin-bottom: 2.5rem;
+    }
+    .feature {
+      font-size: 0.9rem;
+      color: var(--muted);
+      padding: 0.5rem 0;
+    }
+    .feature::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      margin-right: 0.6rem;
+      vertical-align: middle;
+    }
+    .links { display: flex; gap: 1.5rem; justify-content: center; }
+    .links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.15s;
+    }
+    .links a:hover { color: var(--fg); }
+    @media (max-width: 500px) {
+      h1 { font-size: 2rem; }
+      .features { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Gitbacker</h1>
+    <p class="tagline">Self-hosted git repository backup tool.<br>Schedule backups, encrypt archives, restore with one click.</p>
+
+    <div class="install-box">
+      <code><span class="prefix">$</span> curl -fsSL https://gitbacker.com/install.sh | bash</code>
+      <button class="copy-btn" onclick="navigator.clipboard.writeText('curl -fsSL https://gitbacker.com/install.sh | bash');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+    </div>
+
+    <div class="features">
+      <div class="feature">Scheduled backups</div>
+      <div class="feature">GPG encryption</div>
+      <div class="feature">One-click restore</div>
+      <div class="feature">Slack notifications</div>
+      <div class="feature">Private repo support</div>
+      <div class="feature">Multi-user RBAC</div>
+      <div class="feature">Docker Compose deploy</div>
+      <div class="feature">Semantic versioning</div>
+    </div>
+
+    <div class="links">
+      <a href="https://github.com/gitbckr/gitbacker">GitHub</a>
+      <a href="https://github.com/gitbckr/gitbacker#readme">Docs</a>
+      <a href="https://github.com/gitbckr/gitbacker/releases">Releases</a>
+    </div>
+  </div>
+</body>
+</html>
