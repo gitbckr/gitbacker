@@ -1,3 +1,10 @@
+## [0.7.1](https://github.com/gitbckr/gitbacker/compare/v0.7.0...v0.7.1) (2026-04-13)
+
+
+### Bug Fixes
+
+* require ADMIN_PASSWORD and update on reinstall ([2167693](https://github.com/gitbckr/gitbacker/commit/216769306e80cbdcc7906cb62d637c0a086b6eee))
+
 # [0.7.0](https://github.com/gitbckr/gitbacker/compare/v0.6.2...v0.7.0) (2026-04-12)
 
 
