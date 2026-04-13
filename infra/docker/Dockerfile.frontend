@@ -16,7 +16,8 @@ COPY --from=deps /app/node_modules /app/node_modules
 COPY frontend/ /app/
 WORKDIR /app
 
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    INTERNAL_API_URL=http://api:8000
 RUN pnpm build
 
 # --- Stage 3: Runtime ---
