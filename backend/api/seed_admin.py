@@ -18,8 +18,13 @@ DATABASE_URL = os.environ.get(
 )
 
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@gitbacker.local")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 ADMIN_NAME = os.environ.get("ADMIN_NAME", "Admin")
+
+if not ADMIN_PASSWORD:
+    print("Error: ADMIN_PASSWORD environment variable is required.")
+    print("Usage: ADMIN_PASSWORD=your-secret python seed_admin.py")
+    exit(1)
 
 
 async def main() -> None:
@@ -31,8 +36,23 @@ async def main() -> None:
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
         result = await session.execute(select(User).where(User.email == ADMIN_EMAIL))
-        if result.scalar_one_or_none():
-            print(f"Admin user {ADMIN_EMAIL} already exists, skipping.")
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            # Update password for existing admin (handles volume reuse on reinstall)
+            identity_result = await session.execute(
+                select(UserIdentity).where(
+                    UserIdentity.user_id == existing.id,
+                    UserIdentity.provider == IdentityProvider.LOCAL,
+                )
+            )
+            identity = identity_result.scalar_one_or_none()
+            if identity:
+                identity.secret_hash = hash_password(ADMIN_PASSWORD)
+                await session.commit()
+                print(f"Admin user {ADMIN_EMAIL} already exists, password updated.")
+            else:
+                print(f"Admin user {ADMIN_EMAIL} exists but has no local identity.")
             return
 
         user = User(email=ADMIN_EMAIL, name=ADMIN_NAME, role=UserRole.ADMIN)
