@@ -132,6 +132,9 @@ class Repository(Base):
         UUID(as_uuid=True), ForeignKey("destinations.id", ondelete="RESTRICT"), index=True, nullable=False
     )
     encrypt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    encryption_key_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("encryption_keys.id", ondelete="SET NULL"), nullable=True
+    )
     cron_expression: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), index=True, nullable=False
@@ -144,6 +147,7 @@ class Repository(Base):
     )
 
     destination: Mapped["Destination"] = relationship(back_populates="repositories")
+    encryption_key: Mapped["EncryptionKey | None"] = relationship()
     created_by_user: Mapped["User"] = relationship(back_populates="repositories")
     backup_jobs: Mapped[list["BackupJob"]] = relationship(back_populates="repository", passive_deletes=True)
     snapshots: Mapped[list["BackupSnapshot"]] = relationship(

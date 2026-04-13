@@ -4,7 +4,12 @@ from pathlib import Path
 from typing import Protocol
 
 from shared.enums import EncryptionBackend
+from shared.crypto import decrypt_field
 from shared.models import EncryptionKey
+
+import os
+
+_APP_SECRET = os.environ.get("JWT_SECRET", "")
 
 
 class EncryptionProvider(Protocol):
@@ -28,6 +33,7 @@ def get_encryption_provider(key: EncryptionKey) -> EncryptionProvider:
     if key.backend == EncryptionBackend.GPG:
         from .gpg import GpgEncryptionProvider
 
-        return GpgEncryptionProvider(key.key_data)
+        passphrase = decrypt_field(key.key_data, _APP_SECRET) if _APP_SECRET else key.key_data
+        return GpgEncryptionProvider(passphrase)
 
     raise ValueError(f"Unknown encryption backend: {key.backend}")

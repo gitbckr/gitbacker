@@ -39,10 +39,18 @@ class RefreshRequest(BaseModel):
 
 
 class UserCreate(BaseModel):
-    email: EmailStr
+    email: str
     name: str
     password: str
     role: UserRole = UserRole.OPERATOR
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if "@" not in v or "." not in v.split("@")[-1]:
+            raise ValueError("Invalid email address")
+        return v
 
 
 class UserRead(BaseModel):
@@ -60,6 +68,11 @@ class UserUpdate(BaseModel):
     name: str | None = None
     role: UserRole | None = None
     is_active: bool | None = None
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
 
 
 # --- Destinations ---
@@ -100,18 +113,19 @@ class RepoCreate(BaseModel):
     urls: list[str]
     destination_id: uuid.UUID | None = None
     encrypt: bool | None = None
+    encryption_key_id: uuid.UUID | None = None
     cron_expression: str | None = None
 
     @field_validator("urls")
     @classmethod
     def validate_urls(cls, v: list[str]) -> list[str]:
-        if len(v) > 100:
-            raise ValueError("Too many URLs (max 100)")
+        if len(v) > 500:
+            raise ValueError("Too many URLs (max 500)")
         for url in v:
             url = url.strip()
             if not url:
                 continue
-            if not url.startswith(("https://", "http://", "git://", "ssh://")):
+            if not url.startswith(("https://", "http://", "git://", "ssh://", "git@")):
                 raise ValueError(f"Invalid URL scheme: {url}")
         return v
 
@@ -124,6 +138,7 @@ class RepoRead(BaseModel):
     status_reason: str | None
     destination_id: uuid.UUID
     encrypt: bool
+    encryption_key_id: uuid.UUID | None
     cron_expression: str | None
     created_by: uuid.UUID
     created_at: datetime
@@ -137,6 +152,7 @@ class RepoRead(BaseModel):
 class RepoUpdate(BaseModel):
     destination_id: uuid.UUID | None = None
     encrypt: bool | None = None
+    encryption_key_id: uuid.UUID | None = None
     cron_expression: str | None = None
 
 

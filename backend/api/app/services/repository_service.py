@@ -100,6 +100,7 @@ async def create_repositories(
     global_settings = await get_settings(db)
     cron_expression = body.cron_expression if body.cron_expression is not None else global_settings.default_cron_expression
     encrypt = body.encrypt if body.encrypt is not None else global_settings.default_encrypt
+    encryption_key_id = body.encryption_key_id if body.encryption_key_id is not None else global_settings.default_encryption_key_id
 
     repos: list[Repository] = []
     for url in body.urls:
@@ -112,6 +113,7 @@ async def create_repositories(
             status=RepoStatus.VERIFYING,
             destination_id=destination.id,
             encrypt=encrypt,
+            encryption_key_id=encryption_key_id if encrypt else None,
             cron_expression=cron_expression,
             created_by=user.id,
         )

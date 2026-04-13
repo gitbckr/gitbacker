@@ -38,20 +38,26 @@ def _send_notifications(session: Session, event: NotificationEvent) -> None:
             logger.error("Notification to '%s' failed: %s", channel.name, e)
 
 
-def _resolve_credential(session: Session, url: str) -> GitCredential | None:
+def _resolve_credential(session: Session, url: str) -> tuple[GitCredential | None, str | None]:
     """Find a matching git credential for the URL, respecting scheme/type compatibility."""
     host = extract_host(url)
     if not host:
-        return None
+        return None, None
     cred = git_credential_repo.get_by_host(session, host)
     if not cred:
-        return None
+        return None, None
     is_https = url.startswith(("https://", "http://"))
     if cred.credential_type == CredentialType.PAT and not is_https:
-        return None
+        return None, (
+            f"A PAT credential exists for {host} but the URL uses SSH. "
+            "PATs only work with HTTPS URLs."
+        )
     if cred.credential_type == CredentialType.SSH_KEY and is_https:
-        return None
-    return cred
+        return None, (
+            f"An SSH key credential exists for {host} but the URL uses HTTPS. "
+            "Either switch the URL to SSH (git@{host}:...) or add a PAT credential."
+        )
+    return cred, None
 
 
 def run_restore(session: Session, restore_job_id: str) -> dict:
@@ -128,7 +134,9 @@ def run_restore(session: Session, restore_job_id: str) -> dict:
                 )
             bare_repo = entries[0]
 
-            credential = _resolve_credential(session, restore_job.restore_target_url)
+            credential, cred_warning = _resolve_credential(session, restore_job.restore_target_url)
+            if cred_warning:
+                log_lines.append(f"WARNING: {cred_warning}")
             log_lines.append(
                 f"Force-mirror pushing to {restore_job.restore_target_url} ..."
             )

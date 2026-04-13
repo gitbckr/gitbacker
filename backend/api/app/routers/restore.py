@@ -39,6 +39,18 @@ async def trigger_restore(
 
 
 @router.get(
+    "/{repo_id}/restore-jobs",
+    response_model=list[RestoreJobRead],
+)
+async def list_restore_jobs(
+    repo_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[RestoreJob]:
+    return await restore_service.list_restore_jobs(db, user, str(repo_id))
+
+
+@router.get(
     "/{repo_id}/restore-jobs/{job_id}",
     response_model=RestoreJobRead,
 )

@@ -26,6 +26,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # In dev, create tables if they don't exist (migrations are preferred in prod)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Clean up stale jobs left in RUNNING/PENDING state from a previous crash.
+    # These will never complete — mark them as failed so the UI doesn't show
+    # stuck spinners forever.
+    from sqlalchemy import text
+
+    async with engine.begin() as conn:
+        for table in ("backup_jobs", "restore_jobs"):
+            await conn.execute(text(
+                f"UPDATE {table} SET status = 'FAILED', "
+                f"output_log = COALESCE(output_log || E'\\n', '') "
+                f"|| 'ERROR: Job was still running when the server restarted', "
+                f"finished_at = NOW() "
+                f"WHERE status = 'RUNNING'"
+            ))
+
     yield
     await engine.dispose()
 

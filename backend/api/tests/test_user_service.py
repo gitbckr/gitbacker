@@ -34,14 +34,16 @@ async def test_list_users(db_session, admin_user, operator_user):
 
 async def test_update_user(db_session, admin_user):
     body = UserUpdate(name="Updated Admin")
-    user = await user_service.update_user(db_session, str(admin_user.id), body)
+    user = await user_service.update_user(
+        db_session, str(admin_user.id), body, admin_user
+    )
     assert user.name == "Updated Admin"
 
 
-async def test_update_user_not_found(db_session):
+async def test_update_user_not_found(db_session, admin_user):
     body = UserUpdate(name="Ghost")
     with pytest.raises(HTTPException) as exc_info:
         await user_service.update_user(
-            db_session, "00000000-0000-0000-0000-000000000000", body
+            db_session, "00000000-0000-0000-0000-000000000000", body, admin_user
         )
     assert exc_info.value.status_code == 404

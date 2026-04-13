@@ -6,6 +6,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "pydantic[email]>=2.0",
     "celery>=5.4",
+    "cryptography>=44.0",
 ]
 
 [project.optional-dependencies]

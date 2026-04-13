@@ -14,7 +14,10 @@ if TYPE_CHECKING:
 
     from shared.models import GitCredential
 
+from shared.crypto import decrypt_field
 from shared.enums import CredentialType
+
+_APP_SECRET = os.environ.get("JWT_SECRET", "")
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +74,11 @@ def _credential_env(
         yield env, url
         return
 
+    secret = decrypt_field(credential.credential_data, _APP_SECRET) if _APP_SECRET else credential.credential_data
+
     if credential.credential_type == CredentialType.PAT:
         parsed = urlparse(url)
-        token = quote(credential.credential_data, safe="")
+        token = quote(secret, safe="")
         username = credential.username or "x-access-token"
         netloc = f"{username}:{token}@{parsed.hostname}"
         if parsed.port:
@@ -84,7 +89,7 @@ def _credential_env(
     # SSH_KEY — write to a temp file with strict permissions
     fd, keypath = tempfile.mkstemp(suffix=".key")
     try:
-        os.write(fd, credential.credential_data.encode())
+        os.write(fd, secret.encode())
         os.close(fd)
         os.chmod(keypath, 0o600)
         env["GIT_SSH_COMMAND"] = (

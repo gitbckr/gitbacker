@@ -52,6 +52,14 @@ async def trigger_restore(
     return job
 
 
+async def list_restore_jobs(
+    db: AsyncSession, user: User, repo_id: str
+) -> list[RestoreJob]:
+    repo = await get_repo_or_404(db, repo_id)
+    await check_repo_access(db, user, repo)
+    return await restore_job_repo.list_by_repo(db, repo.id)
+
+
 async def get_restore_job(
     db: AsyncSession, user: User, repo_id: str, job_id: str
 ) -> RestoreJob:

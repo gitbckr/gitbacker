@@ -3,7 +3,9 @@ import uuid
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import JWT_SECRET
 from app.repositories import git_credential_repo
+from shared.crypto import encrypt_field
 from shared.models import GitCredential, User
 from shared.schemas import GitCredentialCreate, GitCredentialRead
 
@@ -16,7 +18,7 @@ async def create_git_credential(
         credential_type=body.credential_type,
         host=body.host,
         username=body.username,
-        credential_data=body.credential_data,
+        credential_data=encrypt_field(body.credential_data, JWT_SECRET),
         created_by=user.id,
     )
     await git_credential_repo.create(db, cred)

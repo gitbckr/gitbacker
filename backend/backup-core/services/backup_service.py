@@ -32,20 +32,30 @@ from shared.models import GitCredential
 logger = logging.getLogger(__name__)
 
 
-def _resolve_credential(session: Session, url: str) -> GitCredential | None:
-    """Find a matching git credential for the URL, respecting scheme/type compatibility."""
+def _resolve_credential(session: Session, url: str) -> tuple[GitCredential | None, str | None]:
+    """Find a matching git credential for the URL, respecting scheme/type compatibility.
+
+    Returns (credential, mismatch_warning). If a credential exists for the host
+    but doesn't match the URL scheme, returns (None, warning_message).
+    """
     host = extract_host(url)
     if not host:
-        return None
+        return None, None
     cred = git_credential_repo.get_by_host(session, host)
     if not cred:
-        return None
+        return None, None
     is_https = url.startswith(("https://", "http://"))
     if cred.credential_type == CredentialType.PAT and not is_https:
-        return None
+        return None, (
+            f"A PAT credential exists for {host} but the repo URL uses SSH. "
+            "PATs only work with HTTPS URLs."
+        )
     if cred.credential_type == CredentialType.SSH_KEY and is_https:
-        return None
-    return cred
+        return None, (
+            f"An SSH key credential exists for {host} but the repo URL uses HTTPS. "
+            "Either switch the repo URL to SSH (git@{host}:...) or add a PAT credential."
+        )
+    return cred, None
 
 
 def _send_notifications(session: Session, event: NotificationEvent) -> None:
@@ -76,8 +86,12 @@ def verify_repo(session: Session, repo_id: str) -> dict:
     if not repo:
         return {"error": "Repository not found"}
 
-    credential = _resolve_credential(session, repo.url)
+    credential, cred_warning = _resolve_credential(session, repo.url)
+    if cred_warning:
+        logger.warning("Credential mismatch for %s: %s", repo.url, cred_warning)
     success, error = git_service.verify_access(repo.url, credential)
+    if not success and cred_warning:
+        error = f"{error}\n\nNote: {cred_warning}"
     if success:
         repository_repo.update_status(session, repo, RepoStatus.SCHEDULED)
     else:
@@ -148,7 +162,9 @@ def run_backup(session: Session, job_id: str) -> dict:
             safe_name = _sanitize_name(repo.name)
             clone_path = os.path.join(tmpdir, safe_name)
 
-            credential = _resolve_credential(session, repo.url)
+            credential, cred_warning = _resolve_credential(session, repo.url)
+            if cred_warning:
+                log_lines.append(f"WARNING: {cred_warning}")
             log_lines.append(f"Cloning {repo.url} ...")
             success, output = git_service.clone_mirror(repo.url, clone_path, credential)
             log_lines.append(output)
@@ -171,15 +187,19 @@ def run_backup(session: Session, job_id: str) -> dict:
 
             # Encrypt if enabled
             if repo.encrypt:
-                settings = global_settings_repo.get_settings(session)
-                if not settings or not settings.default_encryption_key_id:
+                # Use per-repo key if set, otherwise fall back to global default
+                key_id = repo.encryption_key_id
+                if not key_id:
+                    settings = global_settings_repo.get_settings(session)
+                    key_id = settings.default_encryption_key_id if settings else None
+                if not key_id:
                     raise RuntimeError(
                         "Encryption is enabled for this repo but no encryption key "
-                        "is configured in global settings"
+                        "is configured (per-repo or global default)"
                     )
 
                 enc_key = encryption_key_repo.get_by_id(
-                    session, settings.default_encryption_key_id
+                    session, key_id
                 )
                 if not enc_key:
                     raise RuntimeError("Default encryption key not found in database")

@@ -3,8 +3,10 @@ import uuid
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import JWT_SECRET
 from app.repositories import encryption_key_repo
 from app.services.settings_service import get_settings
+from shared.crypto import encrypt_field
 from shared.models import EncryptionKey, User
 from shared.schemas import EncryptionKeyCreate, EncryptionKeyRead
 
@@ -15,7 +17,7 @@ async def create_encryption_key(
     key = EncryptionKey(
         name=body.name,
         backend=body.backend,
-        key_data=body.key_data,
+        key_data=encrypt_field(body.key_data, JWT_SECRET),
         created_by=user.id,
     )
     await encryption_key_repo.create(db, key)
