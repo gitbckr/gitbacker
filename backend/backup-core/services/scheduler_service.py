@@ -66,15 +66,15 @@ def dispatch_scheduled_backups(session: Session) -> list[str]:
         job_id_str = str(job.id)
         created_job_ids.append(job_id_str)
 
-        logger.info(
-            "Scheduling backup for repo %s (%s), job %s (due at %s)",
+        logger.debug(
+            "Dispatching backup for %s (due at %s)",
             repo.name,
-            repo.id,
-            job_id_str,
             next_run.isoformat(),
         )
 
     session.commit()
+
+    logger.info("Scheduled %d backup(s)", len(due_repos))
 
     for job_id_str in created_job_ids:
         try:

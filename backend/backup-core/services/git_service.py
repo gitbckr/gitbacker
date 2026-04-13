@@ -117,7 +117,7 @@ def verify_access(
         _validate_url(url)
     except ValueError as e:
         return False, str(e)
-    logger.info("Verifying access to %s", url)
+    logger.debug("Verifying access to %s", url)
     try:
         with _credential_env(credential, url) as (env, effective_url):
             result = subprocess.run(
@@ -141,7 +141,7 @@ def clone_mirror(
 ) -> tuple[bool, str]:
     """Clone a repo with --mirror. Returns (success, combined_output)."""
     _validate_url(url)
-    logger.info("Cloning %s to %s", url, dest_path)
+    logger.debug("Cloning %s to %s", url, dest_path)
     try:
         with _credential_env(credential, url) as (env, effective_url):
             result = subprocess.run(
@@ -171,7 +171,7 @@ def force_mirror_push(
     deleted. Returns (success, combined_output).
     """
     _validate_url(remote_url)
-    logger.info("Force-mirror pushing %s to %s", bare_repo_path, remote_url)
+    logger.debug("Force-mirror pushing %s to %s", bare_repo_path, remote_url)
     try:
         with _credential_env(credential, remote_url) as (env, effective_url):
             result = subprocess.run(
@@ -194,3 +194,99 @@ def force_mirror_push(
         return result.returncode == 0, output
     except subprocess.TimeoutExpired:
         return False, "Timeout: push took longer than 600 seconds"
+
+
+def list_local_refs(bare_repo_path: str) -> dict[str, str]:
+    """Read all refs from a local bare repo. Returns ``{ref_name: sha}``."""
+    result = subprocess.run(
+        ["git", "--git-dir", bare_repo_path, "show-ref"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    refs: dict[str, str] = {}
+    for line in result.stdout.strip().splitlines():
+        if not line.strip():
+            continue
+        sha, ref = line.split(None, 1)
+        refs[ref] = sha
+    return refs
+
+
+def list_remote_refs(
+    url: str, credential: GitCredential | None = None
+) -> dict[str, str]:
+    """Read all refs from a remote via ``git ls-remote``. Returns ``{ref_name: sha}``."""
+    _validate_url(url)
+    with _credential_env(credential, url) as (env, effective_url):
+        result = subprocess.run(
+            ["git", "ls-remote", "--", effective_url],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+    if result.returncode != 0:
+        error = result.stderr.strip() or "ls-remote failed"
+        raise RuntimeError(f"Failed to read remote refs: {error}")
+    refs: dict[str, str] = {}
+    for line in result.stdout.strip().splitlines():
+        if not line.strip():
+            continue
+        sha, ref = line.split(None, 1)
+        refs[ref] = sha
+    return refs
+
+
+def fetch_remote(
+    bare_repo_path: str,
+    url: str,
+    credential: GitCredential | None = None,
+) -> tuple[bool, str]:
+    """Fetch all refs from a remote into a local bare repo. Returns (success, output)."""
+    _validate_url(url)
+    logger.debug("Fetching %s into %s", url, bare_repo_path)
+    try:
+        with _credential_env(credential, url) as (env, effective_url):
+            result = subprocess.run(
+                [
+                    "git", "--git-dir", bare_repo_path,
+                    "fetch", effective_url, "+refs/*:refs/fetched/*",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=600,
+                env=env,
+            )
+        output = (result.stdout or "") + (result.stderr or "")
+        return result.returncode == 0, output
+    except subprocess.TimeoutExpired:
+        return False, "Timeout: fetch took longer than 600 seconds"
+
+
+def diff_numstat(
+    bare_repo_path: str, from_sha: str, to_sha: str
+) -> list[tuple[int, int, str]]:
+    """Run ``git diff --numstat`` between two commits.
+
+    Returns a list of ``(insertions, deletions, filepath)``.
+    Binary files are reported as ``(0, 0, path)``.
+    """
+    result = subprocess.run(
+        ["git", "--git-dir", bare_repo_path, "diff", "--numstat", from_sha, to_sha],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    stats: list[tuple[int, int, str]] = []
+    for line in result.stdout.strip().splitlines():
+        if not line.strip():
+            continue
+        parts = line.split("\t", 2)
+        if len(parts) != 3:
+            continue
+        ins_str, del_str, path = parts
+        ins = int(ins_str) if ins_str != "-" else 0
+        dels = int(del_str) if del_str != "-" else 0
+        stats.append((ins, dels, path))
+    return stats

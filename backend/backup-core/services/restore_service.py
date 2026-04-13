@@ -10,54 +10,17 @@ from sqlalchemy.orm import Session
 from repositories import (
     destination_repo,
     encryption_key_repo,
-    git_credential_repo,
-    notification_channel_repo,
     restore_job_repo,
+    restore_preview_repo,
     snapshot_repo,
 )
 from services import git_service
+from services.common import resolve_credential, send_notifications
 from services.encryption import get_encryption_provider
-from services.notifications import NotificationEvent, get_notification_provider
-from services.git_service import extract_host
-from shared.enums import ArchiveFormat, CredentialType, JobStatus
-from shared.models import GitCredential
+from services.notifications import NotificationEvent
+from shared.enums import ArchiveFormat, JobStatus
 
 logger = logging.getLogger(__name__)
-
-
-def _send_notifications(session: Session, event: NotificationEvent) -> None:
-    """Best-effort: send to all matching channels, log failures."""
-    channels = notification_channel_repo.get_enabled_for_event(
-        session, event.event_type
-    )
-    for channel in channels:
-        try:
-            provider = get_notification_provider(channel)
-            provider.send(event)
-        except Exception as e:
-            logger.error("Notification to '%s' failed: %s", channel.name, e)
-
-
-def _resolve_credential(session: Session, url: str) -> tuple[GitCredential | None, str | None]:
-    """Find a matching git credential for the URL, respecting scheme/type compatibility."""
-    host = extract_host(url)
-    if not host:
-        return None, None
-    cred = git_credential_repo.get_by_host(session, host)
-    if not cred:
-        return None, None
-    is_https = url.startswith(("https://", "http://"))
-    if cred.credential_type == CredentialType.PAT and not is_https:
-        return None, (
-            f"A PAT credential exists for {host} but the URL uses SSH. "
-            "PATs only work with HTTPS URLs."
-        )
-    if cred.credential_type == CredentialType.SSH_KEY and is_https:
-        return None, (
-            f"An SSH key credential exists for {host} but the URL uses HTTPS. "
-            "Either switch the URL to SSH (git@{host}:...) or add a PAT credential."
-        )
-    return cred, None
 
 
 def run_restore(session: Session, restore_job_id: str) -> dict:
@@ -67,10 +30,7 @@ def run_restore(session: Session, restore_job_id: str) -> dict:
         return {"error": "Restore job not found"}
 
     logger.info(
-        "Starting restore job %s (snapshot=%s target=%s)",
-        restore_job_id,
-        restore_job.snapshot_id,
-        restore_job.restore_target_url,
+        "Restore starting — target=%s", restore_job.restore_target_url
     )
 
     started_at = datetime.now(timezone.utc)
@@ -134,7 +94,7 @@ def run_restore(session: Session, restore_job_id: str) -> dict:
                 )
             bare_repo = entries[0]
 
-            credential, cred_warning = _resolve_credential(session, restore_job.restore_target_url)
+            credential, cred_warning = resolve_credential(session, restore_job.restore_target_url)
             if cred_warning:
                 log_lines.append(f"WARNING: {cred_warning}")
             log_lines.append(
@@ -161,7 +121,7 @@ def run_restore(session: Session, restore_job_id: str) -> dict:
         restore_job_repo.mark_succeeded(
             session, restore_job, finished_at, duration, "\n".join(log_lines)
         )
-        logger.info("Restore job %s succeeded", restore_job_id)
+        logger.info("Restore succeeded — %s in %ds", restore_job.restore_target_url, duration)
 
     except Exception as e:
         finished_at = datetime.now(timezone.utc)
@@ -170,12 +130,12 @@ def run_restore(session: Session, restore_job_id: str) -> dict:
         restore_job_repo.mark_failed(
             session, restore_job, finished_at, duration, "\n".join(log_lines)
         )
-        logger.error("Restore job %s failed: %s", restore_job_id, e)
+        logger.error("Restore failed — %s: %s", restore_job.restore_target_url, e)
 
     session.commit()
 
     if restore_job.status == JobStatus.FAILED:
-        _send_notifications(
+        send_notifications(
             session,
             NotificationEvent(
                 event_type="restore_failed",
@@ -188,3 +148,274 @@ def run_restore(session: Session, restore_job_id: str) -> dict:
         )
 
     return {"restore_job_id": restore_job_id, "status": restore_job.status.value}
+
+
+# ---------------------------------------------------------------------------
+# Restore preview
+# ---------------------------------------------------------------------------
+
+
+def _compare_refs(
+    local_refs: dict[str, str], remote_refs: dict[str, str]
+) -> dict:
+    """Compare snapshot refs vs remote refs and return a structured diff."""
+    refs: list[dict] = []
+    counters = {
+        "branches_created": 0,
+        "branches_overwritten": 0,
+        "branches_deleted": 0,
+        "tags_created": 0,
+        "tags_overwritten": 0,
+        "tags_deleted": 0,
+    }
+
+    for ref_name in sorted(set(local_refs) | set(remote_refs)):
+        if not ref_name.startswith("refs/") or "^{}" in ref_name:
+            continue
+
+        if ref_name.startswith("refs/heads/"):
+            ref_type = "branch"
+        elif ref_name.startswith("refs/tags/"):
+            ref_type = "tag"
+        else:
+            continue
+
+        local_sha = local_refs.get(ref_name)
+        remote_sha = remote_refs.get(ref_name)
+
+        if local_sha and not remote_sha:
+            action = "create"
+        elif not local_sha and remote_sha:
+            action = "delete"
+        elif local_sha != remote_sha:
+            action = "overwrite"
+        else:
+            continue  # identical
+
+        refs.append({
+            "ref_name": ref_name,
+            "ref_type": ref_type,
+            "action": action,
+            "snapshot_sha": local_sha,
+            "remote_sha": remote_sha,
+        })
+
+        plural = "branches" if ref_type == "branch" else "tags"
+        if action == "overwrite":
+            key = f"{plural}_overwritten"
+        elif action == "create":
+            key = f"{plural}_created"
+        else:
+            key = f"{plural}_deleted"
+        counters[key] = counters.get(key, 0) + 1
+
+    return {**counters, "refs": refs}
+
+
+def run_restore_preview(session: Session, preview_id: str) -> dict:
+    """Generate a preview of what a restore would change on the target remote."""
+    preview = restore_preview_repo.get_by_id(session, uuid.UUID(preview_id))
+    if not preview:
+        return {"error": "Restore preview not found"}
+
+    restore_preview_repo.mark_running(session, preview)
+    session.commit()
+
+    try:
+        snapshot = snapshot_repo.get_by_id(session, preview.snapshot_id)
+        if not snapshot:
+            raise RuntimeError("Snapshot no longer exists")
+
+        destination = destination_repo.get_by_id(session, snapshot.destination_id)
+        if not destination:
+            raise RuntimeError("Destination no longer exists")
+
+        archive_path = Path(destination.path).resolve() / snapshot.artifact_filename
+        if not archive_path.is_file():
+            raise RuntimeError(f"Archive file not found: {archive_path}")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+
+            # Decrypt if needed
+            if snapshot.archive_format == ArchiveFormat.TAR_GZ_GPG:
+                if not snapshot.encryption_key_id:
+                    raise RuntimeError(
+                        "Encrypted snapshot has no encryption_key_id recorded"
+                    )
+                enc_key = encryption_key_repo.get_by_id(
+                    session, snapshot.encryption_key_id
+                )
+                if not enc_key:
+                    raise RuntimeError(
+                        "Encryption key used for this snapshot no longer exists"
+                    )
+                provider = get_encryption_provider(enc_key)
+                tar_path = tmp_path / "archive.tar.gz"
+                provider.decrypt_file(archive_path, tar_path)
+            else:
+                tar_path = archive_path
+
+            # Extract
+            extract_dir = tmp_path / "extracted"
+            extract_dir.mkdir()
+            shutil.unpack_archive(str(tar_path), str(extract_dir), "gztar")
+
+            entries = [p for p in extract_dir.iterdir() if p.is_dir()]
+            if len(entries) != 1:
+                raise RuntimeError(
+                    f"Unexpected archive layout: expected 1 directory, "
+                    f"found {len(entries)}"
+                )
+            bare_repo = entries[0]
+
+            # Read refs from snapshot and remote
+            local_refs = git_service.list_local_refs(str(bare_repo))
+            credential, _ = resolve_credential(
+                session, preview.restore_target_url
+            )
+            remote_refs = git_service.list_remote_refs(
+                preview.restore_target_url, credential
+            )
+
+        result_data = _compare_refs(local_refs, remote_refs)
+
+        restore_preview_repo.mark_succeeded(
+            session, preview, datetime.now(timezone.utc), result_data
+        )
+        logger.info("Preview succeeded — %s", preview.restore_target_url)
+
+    except Exception as e:
+        restore_preview_repo.mark_failed(
+            session, preview, datetime.now(timezone.utc), str(e)
+        )
+        logger.error("Preview failed — %s: %s", preview.restore_target_url, e)
+
+    session.commit()
+    return {"preview_id": preview_id, "status": preview.status.value}
+
+
+def run_detailed_preview(session: Session, preview_id: str) -> dict:
+    """Fetch the remote and compute file-level diffs for overwritten refs."""
+    preview = restore_preview_repo.get_by_id(session, uuid.UUID(preview_id))
+    if not preview:
+        return {"error": "Restore preview not found"}
+
+    if preview.status != JobStatus.SUCCEEDED or not preview.result_data:
+        return {"error": "Quick preview must succeed before running detailed preview"}
+
+    overwritten = [
+        r for r in preview.result_data.get("refs", [])
+        if r["action"] == "overwrite" and r.get("remote_sha") and r.get("snapshot_sha")
+    ]
+    if not overwritten:
+        restore_preview_repo.mark_detail_succeeded(session, preview, {
+            "refs": [], "total_files": 0, "total_insertions": 0, "total_deletions": 0,
+        })
+        session.commit()
+        return {"preview_id": preview_id, "detail_status": "SUCCEEDED"}
+
+    restore_preview_repo.mark_detail_running(session, preview)
+    session.commit()
+
+    try:
+        snapshot = snapshot_repo.get_by_id(session, preview.snapshot_id)
+        if not snapshot:
+            raise RuntimeError("Snapshot no longer exists")
+
+        destination = destination_repo.get_by_id(session, snapshot.destination_id)
+        if not destination:
+            raise RuntimeError("Destination no longer exists")
+
+        archive_path = Path(destination.path).resolve() / snapshot.artifact_filename
+        if not archive_path.is_file():
+            raise RuntimeError(f"Archive file not found: {archive_path}")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+
+            # Decrypt if needed
+            if snapshot.archive_format == ArchiveFormat.TAR_GZ_GPG:
+                if not snapshot.encryption_key_id:
+                    raise RuntimeError(
+                        "Encrypted snapshot has no encryption_key_id recorded"
+                    )
+                enc_key = encryption_key_repo.get_by_id(
+                    session, snapshot.encryption_key_id
+                )
+                if not enc_key:
+                    raise RuntimeError(
+                        "Encryption key used for this snapshot no longer exists"
+                    )
+                provider = get_encryption_provider(enc_key)
+                tar_path = tmp_path / "archive.tar.gz"
+                provider.decrypt_file(archive_path, tar_path)
+            else:
+                tar_path = archive_path
+
+            # Extract
+            extract_dir = tmp_path / "extracted"
+            extract_dir.mkdir()
+            shutil.unpack_archive(str(tar_path), str(extract_dir), "gztar")
+
+            entries = [p for p in extract_dir.iterdir() if p.is_dir()]
+            if len(entries) != 1:
+                raise RuntimeError(
+                    f"Unexpected archive layout: expected 1 directory, "
+                    f"found {len(entries)}"
+                )
+            bare_repo = str(entries[0])
+
+            # Fetch remote objects into the bare repo
+            credential, _ = resolve_credential(
+                session, preview.restore_target_url
+            )
+            success, fetch_output = git_service.fetch_remote(
+                bare_repo, preview.restore_target_url, credential
+            )
+            if not success:
+                raise RuntimeError(f"Failed to fetch remote: {fetch_output}")
+
+            # Diff each overwritten ref
+            detail_refs: list[dict] = []
+            grand_files = 0
+            grand_ins = 0
+            grand_dels = 0
+
+            for ref in overwritten:
+                stats = git_service.diff_numstat(
+                    bare_repo, ref["remote_sha"], ref["snapshot_sha"]
+                )
+                files = [
+                    {"path": path, "insertions": ins, "deletions": dels}
+                    for ins, dels, path in stats
+                ]
+                total_ins = sum(s[0] for s in stats)
+                total_dels = sum(s[1] for s in stats)
+                detail_refs.append({
+                    "ref_name": ref["ref_name"],
+                    "files": files,
+                    "total_files": len(files),
+                    "total_insertions": total_ins,
+                    "total_deletions": total_dels,
+                })
+                grand_files += len(files)
+                grand_ins += total_ins
+                grand_dels += total_dels
+
+        detail_data = {
+            "refs": detail_refs,
+            "total_files": grand_files,
+            "total_insertions": grand_ins,
+            "total_deletions": grand_dels,
+        }
+
+        restore_preview_repo.mark_detail_succeeded(session, preview, detail_data)
+        logger.info("Detailed preview succeeded — %d files across %d refs", grand_files, len(detail_refs))
+
+    except Exception as e:
+        restore_preview_repo.mark_detail_failed(session, preview, str(e))
+        logger.error("Detailed preview failed — %s", e)
+
+    session.commit()
+    return {"preview_id": preview_id, "detail_status": preview.detail_status.value}

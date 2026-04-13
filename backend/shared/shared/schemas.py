@@ -225,6 +225,80 @@ class RestoreJobRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# --- Restore Previews ---
+
+
+class RestorePreviewCreate(BaseModel):
+    snapshot_id: uuid.UUID
+    restore_target_url: str
+
+    @field_validator("restore_target_url")
+    @classmethod
+    def validate_target_url(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("restore_target_url is required")
+        if not v.startswith(("https://", "http://", "git://", "ssh://", "git@")):
+            raise ValueError(f"Invalid URL scheme: {v}")
+        return v
+
+
+class RefDiff(BaseModel):
+    ref_name: str
+    ref_type: str
+    action: str
+    snapshot_sha: str | None = None
+    remote_sha: str | None = None
+
+
+class RestorePreviewResult(BaseModel):
+    branches_created: int = 0
+    branches_overwritten: int = 0
+    branches_deleted: int = 0
+    tags_created: int = 0
+    tags_overwritten: int = 0
+    tags_deleted: int = 0
+    refs: list[RefDiff] = []
+
+
+class FileDiffStat(BaseModel):
+    path: str
+    insertions: int
+    deletions: int
+
+
+class DetailedRefDiff(BaseModel):
+    ref_name: str
+    files: list[FileDiffStat] = []
+    total_files: int = 0
+    total_insertions: int = 0
+    total_deletions: int = 0
+
+
+class DetailedPreviewResult(BaseModel):
+    refs: list[DetailedRefDiff] = []
+    total_files: int = 0
+    total_insertions: int = 0
+    total_deletions: int = 0
+
+
+class RestorePreviewRead(BaseModel):
+    id: uuid.UUID
+    snapshot_id: uuid.UUID
+    restore_target_url: str
+    triggered_by: uuid.UUID
+    status: JobStatus
+    result_data: RestorePreviewResult | None = None
+    error_message: str | None = None
+    detail_status: JobStatus | None = None
+    detail_data: DetailedPreviewResult | None = None
+    detail_error: str | None = None
+    created_at: datetime
+    finished_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
 # --- Git Credentials ---
 
 
@@ -331,7 +405,6 @@ class EncryptionKeyRead(BaseModel):
     id: uuid.UUID
     name: str
     backend: EncryptionBackend
-    key_data: str
     created_by: uuid.UUID
     created_at: datetime
 

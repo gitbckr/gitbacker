@@ -1,3 +1,5 @@
+import hashlib
+import json
 import logging
 import os
 import re
@@ -13,62 +15,18 @@ from repositories import (
     backup_job_repo,
     destination_repo,
     encryption_key_repo,
-    git_credential_repo,
     global_settings_repo,
-    notification_channel_repo,
     repository_repo,
     snapshot_repo,
 )
 from services import git_service
+from services.common import resolve_credential, send_notifications
 from services.encryption import get_encryption_provider
-from services.git_service import extract_host
-from services.notifications import NotificationEvent, get_notification_provider
+from services.notifications import NotificationEvent
 from shared.enums import ArchiveFormat, JobStatus, RepoStatus
 from shared.models import BackupSnapshot
 
-from shared.enums import CredentialType
-from shared.models import GitCredential
-
 logger = logging.getLogger(__name__)
-
-
-def _resolve_credential(session: Session, url: str) -> tuple[GitCredential | None, str | None]:
-    """Find a matching git credential for the URL, respecting scheme/type compatibility.
-
-    Returns (credential, mismatch_warning). If a credential exists for the host
-    but doesn't match the URL scheme, returns (None, warning_message).
-    """
-    host = extract_host(url)
-    if not host:
-        return None, None
-    cred = git_credential_repo.get_by_host(session, host)
-    if not cred:
-        return None, None
-    is_https = url.startswith(("https://", "http://"))
-    if cred.credential_type == CredentialType.PAT and not is_https:
-        return None, (
-            f"A PAT credential exists for {host} but the repo URL uses SSH. "
-            "PATs only work with HTTPS URLs."
-        )
-    if cred.credential_type == CredentialType.SSH_KEY and is_https:
-        return None, (
-            f"An SSH key credential exists for {host} but the repo URL uses HTTPS. "
-            "Either switch the repo URL to SSH (git@{host}:...) or add a PAT credential."
-        )
-    return cred, None
-
-
-def _send_notifications(session: Session, event: NotificationEvent) -> None:
-    """Best-effort: send to all matching channels, log failures."""
-    channels = notification_channel_repo.get_enabled_for_event(
-        session, event.event_type
-    )
-    for channel in channels:
-        try:
-            provider = get_notification_provider(channel)
-            provider.send(event)
-        except Exception as e:
-            logger.error("Notification to '%s' failed: %s", channel.name, e)
 
 
 def _sanitize_name(name: str) -> str:
@@ -86,7 +44,7 @@ def verify_repo(session: Session, repo_id: str) -> dict:
     if not repo:
         return {"error": "Repository not found"}
 
-    credential, cred_warning = _resolve_credential(session, repo.url)
+    credential, cred_warning = resolve_credential(session, repo.url)
     if cred_warning:
         logger.warning("Credential mismatch for %s: %s", repo.url, cred_warning)
     success, error = git_service.verify_access(repo.url, credential)
@@ -98,10 +56,10 @@ def verify_repo(session: Session, repo_id: str) -> dict:
         repository_repo.update_status(session, repo, RepoStatus.ACCESS_ERROR, error)
 
     session.commit()
-    logger.info("Repo %s verified: %s", repo_id, repo.status.value)
+    logger.info("Verify [%s] — %s", repo.name, repo.status.value)
 
     if not success:
-        _send_notifications(
+        send_notifications(
             session,
             NotificationEvent(
                 event_type="repo_verification_failed",
@@ -133,7 +91,7 @@ def run_backup(session: Session, job_id: str) -> dict:
         session.commit()
         return {"error": "Backup already in progress"}
 
-    logger.info("Starting backup job %s for repo %s", job_id, repo.url)
+    logger.info("Backup [%s] starting — %s", repo.name, repo.url)
 
     destination = destination_repo.get_by_id(session, repo.destination_id)
     if not destination:
@@ -162,9 +120,34 @@ def run_backup(session: Session, job_id: str) -> dict:
             safe_name = _sanitize_name(repo.name)
             clone_path = os.path.join(tmpdir, safe_name)
 
-            credential, cred_warning = _resolve_credential(session, repo.url)
+            credential, cred_warning = resolve_credential(session, repo.url)
             if cred_warning:
                 log_lines.append(f"WARNING: {cred_warning}")
+
+            # Check if anything changed since last backup
+            try:
+                remote_refs = git_service.list_remote_refs(repo.url, credential)
+                refs_hash = hashlib.sha256(
+                    json.dumps(sorted(remote_refs.items())).encode()
+                ).hexdigest()
+            except Exception:
+                # If ls-remote fails, proceed with backup anyway
+                refs_hash = None
+
+            if refs_hash:
+                last_snapshot = snapshot_repo.get_latest_by_repo(session, repo.id)
+                if last_snapshot and last_snapshot.refs_hash == refs_hash:
+                    log_lines.append("No changes since last backup — skipped")
+                    now = datetime.now(timezone.utc)
+                    duration = int((now - started_at).total_seconds())
+                    backup_job_repo.mark_succeeded(
+                        session, job, now, duration, "\n".join(log_lines), 0
+                    )
+                    repository_repo.update_status(session, repo, RepoStatus.BACKED_UP)
+                    session.commit()
+                    logger.info("Backup [%s] skipped — no changes", repo.name)
+                    return {"job_id": job_id, "status": "skipped"}
+
             log_lines.append(f"Cloning {repo.url} ...")
             success, output = git_service.clone_mirror(repo.url, clone_path, credential)
             log_lines.append(output)
@@ -241,9 +224,13 @@ def run_backup(session: Session, job_id: str) -> dict:
             artifact_filename=archive_name,
             archive_format=archive_format,
             encryption_key_id=encryption_key_id,
+            refs_hash=refs_hash,
         )
         snapshot_repo.create(session, snapshot)
-        logger.info("Backup job %s succeeded: %d bytes", job_id, backup_size)
+        logger.info(
+            "Backup [%s] succeeded — %d bytes in %ds",
+            repo.name, backup_size, duration,
+        )
 
     except Exception as e:
         now = datetime.now(timezone.utc)
@@ -251,13 +238,13 @@ def run_backup(session: Session, job_id: str) -> dict:
         log_lines.append(f"ERROR: {e}")
         backup_job_repo.mark_failed(session, job, now, duration, "\n".join(log_lines))
         repository_repo.update_status(session, repo, RepoStatus.FAILED)
-        logger.error("Backup job %s failed: %s", job_id, e)
+        logger.error("Backup [%s] failed — %s", repo.name, e)
 
     session.commit()
 
     # --- Notifications (best-effort, after commit) ---
     if job.status == JobStatus.FAILED:
-        _send_notifications(
+        send_notifications(
             session,
             NotificationEvent(
                 event_type="backup_failed",
@@ -274,7 +261,7 @@ def run_backup(session: Session, job_id: str) -> dict:
             usage = shutil.disk_usage(str(dest_path))
             free_pct = (usage.free / usage.total) * 100
             if free_pct < 10:
-                _send_notifications(
+                send_notifications(
                     session,
                     NotificationEvent(
                         event_type="disk_space_low",

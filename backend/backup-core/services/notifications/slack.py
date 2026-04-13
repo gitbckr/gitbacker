@@ -86,4 +86,4 @@ class SlackNotificationProvider:
         except urllib.error.URLError as e:
             raise RuntimeError(f"Could not reach Slack: {e.reason}") from e
 
-        logger.info("Slack notification sent: %s", event.title)
+        logger.debug("Slack notification sent: %s", event.title)

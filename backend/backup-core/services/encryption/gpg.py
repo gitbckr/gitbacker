@@ -13,7 +13,7 @@ class GpgEncryptionProvider:
 
     def encrypt_file(self, input_path: Path, output_path: Path) -> None:
         """Encrypt using gpg --symmetric --cipher-algo AES256."""
-        logger.info("Encrypting %s -> %s with GPG symmetric", input_path, output_path)
+        logger.debug("Encrypting %s -> %s", input_path, output_path)
         result = subprocess.run(
             [
                 "gpg",
@@ -38,7 +38,7 @@ class GpgEncryptionProvider:
 
     def decrypt_file(self, input_path: Path, output_path: Path) -> None:
         """Decrypt using gpg --decrypt with passphrase."""
-        logger.info("Decrypting %s -> %s", input_path, output_path)
+        logger.debug("Decrypting %s -> %s", input_path, output_path)
         result = subprocess.run(
             [
                 "gpg",

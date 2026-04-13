@@ -277,6 +277,95 @@ export function getRestoreJob(
   return request(`/repositories/${repoId}/restore-jobs/${jobId}`, { token });
 }
 
+// --- Restore Preview ---
+
+export type RefDiff = {
+  ref_name: string;
+  ref_type: "branch" | "tag";
+  action: "create" | "overwrite" | "delete";
+  snapshot_sha: string | null;
+  remote_sha: string | null;
+};
+
+export type RestorePreviewResult = {
+  branches_created: number;
+  branches_overwritten: number;
+  branches_deleted: number;
+  tags_created: number;
+  tags_overwritten: number;
+  tags_deleted: number;
+  refs: RefDiff[];
+};
+
+export type FileDiffStat = {
+  path: string;
+  insertions: number;
+  deletions: number;
+};
+
+export type DetailedRefDiff = {
+  ref_name: string;
+  files: FileDiffStat[];
+  total_files: number;
+  total_insertions: number;
+  total_deletions: number;
+};
+
+export type DetailedPreviewResult = {
+  refs: DetailedRefDiff[];
+  total_files: number;
+  total_insertions: number;
+  total_deletions: number;
+};
+
+export type RestorePreview = {
+  id: string;
+  snapshot_id: string;
+  restore_target_url: string;
+  triggered_by: string;
+  status: "pending" | "running" | "succeeded" | "failed";
+  result_data: RestorePreviewResult | null;
+  error_message: string | null;
+  detail_status: "pending" | "running" | "succeeded" | "failed" | null;
+  detail_data: DetailedPreviewResult | null;
+  detail_error: string | null;
+  created_at: string;
+  finished_at: string | null;
+};
+
+export function triggerRestorePreview(
+  token: string,
+  repoId: string,
+  data: { snapshot_id: string; restore_target_url: string },
+): Promise<RestorePreview> {
+  return request(`/repositories/${repoId}/restore-preview`, {
+    method: "POST",
+    body: data,
+    token,
+  });
+}
+
+export function getRestorePreview(
+  token: string,
+  repoId: string,
+  previewId: string,
+): Promise<RestorePreview> {
+  return request(`/repositories/${repoId}/restore-preview/${previewId}`, {
+    token,
+  });
+}
+
+export function triggerDetailedPreview(
+  token: string,
+  repoId: string,
+  previewId: string,
+): Promise<RestorePreview> {
+  return request(
+    `/repositories/${repoId}/restore-preview/${previewId}/detail`,
+    { method: "POST", token },
+  );
+}
+
 // --- Backup Jobs ---
 
 export type BackupJob = {
@@ -410,7 +499,6 @@ export type EncryptionKey = {
   id: string;
   name: string;
   backend: string;
-  key_data: string;
   created_by: string;
   created_at: string;
 };

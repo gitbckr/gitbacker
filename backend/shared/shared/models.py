@@ -216,6 +216,7 @@ class BackupSnapshot(Base):
         UUID(as_uuid=True), ForeignKey("encryption_keys.id", ondelete="SET NULL"), nullable=True
     )
     label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    refs_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -258,6 +259,40 @@ class RestoreJob(Base):
     )
 
     repository: Mapped["Repository"] = relationship(back_populates="restore_jobs")
+    snapshot: Mapped["BackupSnapshot"] = relationship()
+    triggered_by_user: Mapped["User"] = relationship()
+
+
+class RestorePreview(Base):
+    __tablename__ = "restore_previews"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    snapshot_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("backup_snapshots.id", ondelete="CASCADE"), nullable=False
+    )
+    restore_target_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    triggered_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    status: Mapped[JobStatus] = mapped_column(
+        Enum(JobStatus), nullable=False, default=JobStatus.PENDING
+    )
+    result_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    detail_status: Mapped[JobStatus | None] = mapped_column(
+        Enum(JobStatus), nullable=True
+    )
+    detail_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    detail_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     snapshot: Mapped["BackupSnapshot"] = relationship()
     triggered_by_user: Mapped["User"] = relationship()
 

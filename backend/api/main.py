@@ -41,6 +41,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 f"finished_at = NOW() "
                 f"WHERE status = 'RUNNING'"
             ))
+        await conn.execute(text(
+            "UPDATE restore_previews SET status = 'FAILED', "
+            "error_message = 'Preview was still running when the server restarted', "
+            "finished_at = NOW() "
+            "WHERE status IN ('RUNNING', 'PENDING')"
+        ))
 
     yield
     await engine.dispose()
