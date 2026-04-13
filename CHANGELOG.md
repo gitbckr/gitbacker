@@ -1,3 +1,10 @@
+# [0.9.0](https://github.com/gitbckr/gitbacker/compare/v0.8.0...v0.9.0) (2026-04-13)
+
+
+### Features
+
+* restore preview with file diffs, skip-unchanged backups, and logging cleanup ([484b52a](https://github.com/gitbckr/gitbacker/commit/484b52a18b339be7092ac4364226b7ef0c575b54))
+
 # [0.8.0](https://github.com/gitbckr/gitbacker/compare/v0.7.2...v0.8.0) (2026-04-13)
 
 
