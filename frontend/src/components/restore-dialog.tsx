@@ -13,6 +13,7 @@ import {
   triggerRestore,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -185,9 +186,9 @@ function Step1({
                   </div>
                   <div
                     className="text-xs text-muted-foreground"
-                    title={new Date(s.created_at).toLocaleString()}
+                    title={formatDateTime(s.created_at)}
                   >
-                    {new Date(s.created_at).toLocaleString()}
+                    {formatDateTime(s.created_at)}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">

@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -9,10 +10,17 @@ import {
   Clock,
   Play,
   Timer,
+  RotateCcw,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { formatDateTime } from "@/lib/utils";
 import { AppShell } from "@/components/app-shell";
-import { listBackupJobs } from "@/lib/api";
+import {
+  listBackupJobs,
+  listRestoreJobs,
+  type BackupJob,
+  type RestoreJob,
+} from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -29,9 +37,11 @@ import {
 } from "@/components/ui/table";
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (!bytes || bytes <= 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+  return `${(bytes / Math.pow(k, i)).toFixed(i > 0 ? 1 : 0)} ${sizes[i]}`;
 }
 
 function formatDuration(seconds: number): string {
@@ -60,102 +70,170 @@ function JobStatusBadge({ status }: { status: string }) {
   );
 }
 
+type UnifiedJob = {
+  id: string;
+  kind: "backup" | "restore";
+  status: string;
+  trigger_type?: string;
+  restore_target_url?: string;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_seconds: number | null;
+  output_log: string | null;
+  backup_size_bytes?: number | null;
+  created_at: string;
+};
+
+function unifyJobs(backups: BackupJob[], restores: RestoreJob[]): UnifiedJob[] {
+  const unified: UnifiedJob[] = [
+    ...backups.map((j) => ({
+      id: j.id,
+      kind: "backup" as const,
+      status: j.status,
+      trigger_type: j.trigger_type,
+      started_at: j.started_at,
+      finished_at: j.finished_at,
+      duration_seconds: j.duration_seconds,
+      output_log: j.output_log,
+      backup_size_bytes: j.backup_size_bytes,
+      created_at: j.created_at,
+    })),
+    ...restores.map((j) => ({
+      id: j.id,
+      kind: "restore" as const,
+      status: j.status,
+      restore_target_url: j.restore_target_url,
+      started_at: j.started_at,
+      finished_at: j.finished_at,
+      duration_seconds: j.duration_seconds,
+      output_log: j.output_log,
+      created_at: j.created_at,
+    })),
+  ];
+  unified.sort((a, b) => {
+    const aTime = a.started_at ?? a.created_at;
+    const bTime = b.started_at ?? b.created_at;
+    return new Date(bTime).getTime() - new Date(aTime).getTime();
+  });
+  return unified;
+}
+
 export default function RepoDetailPage() {
   const params = useParams<{ id: string }>();
   const { token } = useAuth();
+  const [expandedJob, setExpandedJob] = useState<string | null>(null);
 
-  const { data: jobs = [], isLoading, isError } = useQuery({
+  const { data: backupJobs = [], isLoading: loadingBackups, isError: errorBackups } = useQuery({
     queryKey: ["backup-jobs", params.id],
     queryFn: () => listBackupJobs(token!, params.id),
     enabled: !!token && !!params.id,
     refetchInterval: 5000,
   });
 
+  const { data: restoreJobs = [], isLoading: loadingRestores, isError: errorRestores } = useQuery({
+    queryKey: ["restore-jobs", params.id],
+    queryFn: () => listRestoreJobs(token!, params.id),
+    enabled: !!token && !!params.id,
+    refetchInterval: 5000,
+  });
+
+  const jobs = useMemo(
+    () => unifyJobs(backupJobs, restoreJobs),
+    [backupJobs, restoreJobs],
+  );
+
+  const isLoading = loadingBackups || loadingRestores;
+  const isError = errorBackups || errorRestores;
+
   return (
     <AppShell>
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Backup History</h1>
+        <h1 className="text-2xl font-semibold">Job History</h1>
 
         {isLoading ? (
           <p className="text-muted-foreground">Loading...</p>
         ) : isError ? (
-          <p className="text-sm text-red-500">Failed to load backup history. Please try again.</p>
+          <p className="text-sm text-red-500">Failed to load job history. Please try again.</p>
         ) : jobs.length === 0 ? (
           <p className="text-muted-foreground">
-            No backup jobs yet. Trigger a backup from the Repos page.
+            No jobs yet. Trigger a backup from the Repos page.
           </p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Trigger</TableHead>
                 <TableHead>Started</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Size</TableHead>
+                <TableHead className="w-[60px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {jobs.map((job) => (
-                <TableRow key={job.id}>
-                  <TableCell>
-                    <JobStatusBadge status={job.status} />
-                  </TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                      {job.trigger_type === "manual" ? (
-                        <Play className="h-3.5 w-3.5" />
-                      ) : (
-                        <Timer className="h-3.5 w-3.5" />
-                      )}
-                      {job.trigger_type}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {job.started_at
-                      ? new Date(job.started_at).toLocaleString()
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {job.duration_seconds != null
-                      ? formatDuration(job.duration_seconds)
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {job.backup_size_bytes != null
-                      ? formatBytes(job.backup_size_bytes)
-                      : "—"}
-                  </TableCell>
-                </TableRow>
+                <Fragment key={job.id}>
+                  <TableRow
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() =>
+                      setExpandedJob(expandedJob === job.id ? null : job.id)
+                    }
+                  >
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1.5 text-sm">
+                        {job.kind === "backup" ? (
+                          <Play className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : (
+                          <RotateCcw className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                        <span className="capitalize">{job.kind}</span>
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <JobStatusBadge status={job.status} />
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {job.kind === "backup"
+                          ? job.trigger_type ?? "—"
+                          : job.restore_target_url
+                            ? new URL(job.restore_target_url).pathname.split("/").pop()
+                            : "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {job.started_at
+                        ? formatDateTime(job.started_at)
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {job.duration_seconds != null
+                        ? formatDuration(job.duration_seconds)
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {job.backup_size_bytes != null
+                        ? formatBytes(job.backup_size_bytes)
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {job.output_log ? (expandedJob === job.id ? "▲" : "▼") : ""}
+                    </TableCell>
+                  </TableRow>
+                  {expandedJob === job.id && job.output_log && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="p-0">
+                        <pre className="whitespace-pre-wrap bg-muted p-4 text-xs font-mono max-h-64 overflow-auto">
+                          {job.output_log}
+                        </pre>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
               ))}
             </TableBody>
           </Table>
-        )}
-
-        {jobs.some((j) => j.output_log) && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-medium">Latest Log</h2>
-            {jobs
-              .filter((j) => j.output_log)
-              .slice(0, 1)
-              .map((job) => (
-                <Card key={job.id}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <JobStatusBadge status={job.status} />
-                      <span className="text-muted-foreground font-normal">
-                        Job {job.id.slice(0, 8)}
-                      </span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <pre className="whitespace-pre-wrap rounded bg-muted p-3 text-xs font-mono">
-                      {job.output_log}
-                    </pre>
-                  </CardContent>
-                </Card>
-              ))}
-          </div>
         )}
       </div>
     </AppShell>

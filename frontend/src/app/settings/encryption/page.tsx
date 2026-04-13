@@ -7,11 +7,14 @@ import { useAuth } from "@/lib/auth";
 import {
   createEncryptionKey,
   deleteEncryptionKey,
+  getSettings,
   listEncryptionKeys,
+  updateSettings,
   type EncryptionKey,
 } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -81,6 +84,14 @@ export default function EncryptionSettingsPage() {
     enabled: !!token,
   });
 
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => getSettings(token!),
+    enabled: !!token,
+  });
+
+  const defaultKeyId = settings?.default_encryption_key_id ?? null;
+
   const createMutation = useMutation({
     mutationFn: () =>
       createEncryptionKey(token!, {
@@ -109,14 +120,45 @@ export default function EncryptionSettingsPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const setDefaultMutation = useMutation({
+    mutationFn: (keyId: string | null) =>
+      updateSettings(token!, { default_encryption_key_id: keyId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      toast.success("Default key updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const toggleEncryptDefault = useMutation({
+    mutationFn: (enabled: boolean) =>
+      updateSettings(token!, { default_encrypt: enabled }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-medium">Encryption Keys</h2>
+        <h2 className="text-lg font-medium">Encryption</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage GPG encryption keys used to encrypt backup archives. Set the
-          default key in General settings.
+          Manage encryption keys and defaults for backup archives.
         </p>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="default-encrypt"
+          checked={settings?.default_encrypt ?? false}
+          onCheckedChange={(checked) =>
+            toggleEncryptDefault.mutate(checked === true)
+          }
+        />
+        <Label htmlFor="default-encrypt" className="text-sm font-normal">
+          Encrypt new repositories by default
+        </Label>
       </div>
 
       {createdPassphrase && (
@@ -171,36 +213,72 @@ export default function EncryptionSettingsPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Secret</TableHead>
-              <TableHead className="w-[60px]" />
+              <TableHead>Status</TableHead>
+              <TableHead className="w-[180px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {keys.map((k: EncryptionKey) => (
-              <TableRow key={k.id}>
-                <TableCell className="font-medium">{k.name}</TableCell>
-                <TableCell>
-                  <Badge variant="secondary">
-                    {k.backend.toUpperCase()}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  Passphrase set
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteMutation.mutate(k.id)}
-                    disabled={deleteMutation.isPending}
-                  >
-                    Delete
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {keys.map((k: EncryptionKey) => {
+              const isDefault = k.id === defaultKeyId;
+              return (
+                <TableRow key={k.id}>
+                  <TableCell className="font-medium">
+                    <span className="flex items-center gap-2">
+                      {k.name}
+                      {isDefault && <Badge>Default</Badge>}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">
+                      {k.backend.toUpperCase()}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    Passphrase set
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-1">
+                      {!isDefault && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDefaultMutation.mutate(k.id)}
+                          disabled={setDefaultMutation.isPending}
+                        >
+                          Set as default
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (isDefault) {
+                            toast.error(
+                              "Remove as default before deleting. Set another key as default first.",
+                            );
+                            return;
+                          }
+                          if (confirm("Delete this encryption key?")) {
+                            deleteMutation.mutate(k.id);
+                          }
+                        }}
+                        disabled={deleteMutation.isPending}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
+      )}
+
+      {keys.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No encryption keys configured. Add one to encrypt backup archives.
+        </p>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>

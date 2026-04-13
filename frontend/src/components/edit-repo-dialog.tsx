@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Destination,
   Repository,
   Settings,
+  listEncryptionKeys,
   updateRepository,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -81,14 +82,26 @@ function EditRepoForm({
   const { token } = useAuth();
   const queryClient = useQueryClient();
 
+  const defaultCron = settings?.default_cron_expression;
+  const matchesDefault = !!defaultCron && repo.cron_expression === defaultCron;
+
   const [destinationId, setDestinationId] = useState(repo.destination_id);
   const [cronExpression, setCronExpression] = useState(
     repo.cron_expression ?? "",
   );
-  const [useDefaultSchedule, setUseDefaultSchedule] = useState(false);
+  const [useDefaultSchedule, setUseDefaultSchedule] = useState(matchesDefault);
   const [encrypt, setEncrypt] = useState(repo.encrypt);
+  const [encryptionKeyId, setEncryptionKeyId] = useState(
+    repo.encryption_key_id ?? settings?.default_encryption_key_id ?? "",
+  );
 
   const hasDefaultSchedule = !!settings?.default_cron_expression;
+
+  const { data: encryptionKeys = [] } = useQuery({
+    queryKey: ["encryption-keys"],
+    queryFn: () => listEncryptionKeys(token!),
+    enabled: !!token,
+  });
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -101,6 +114,7 @@ function EditRepoForm({
         destination_id: destinationId,
         cron_expression: effectiveCron,
         encrypt,
+        encryption_key_id: encrypt && encryptionKeyId ? encryptionKeyId : undefined,
       });
     },
     onSuccess: () => {
@@ -164,15 +178,38 @@ function EditRepoForm({
           onChange={setCronExpression}
         />
       )}
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id="edit-encrypt"
-          checked={encrypt}
-          onCheckedChange={(checked) => setEncrypt(checked === true)}
-        />
-        <Label htmlFor="edit-encrypt" className="text-sm font-normal">
-          Encrypt backups
-        </Label>
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="edit-encrypt"
+            checked={encrypt}
+            onCheckedChange={(checked) => setEncrypt(checked === true)}
+          />
+          <Label htmlFor="edit-encrypt" className="text-sm font-normal">
+            Encrypt backups
+          </Label>
+        </div>
+        {encrypt && encryptionKeys.length > 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="edit-enc-key">Encryption key</Label>
+            <Select
+              value={encryptionKeyId}
+              onValueChange={setEncryptionKeyId}
+            >
+              <SelectTrigger id="edit-enc-key">
+                <SelectValue placeholder="Select key" />
+              </SelectTrigger>
+              <SelectContent>
+                {encryptionKeys.map((k) => (
+                  <SelectItem key={k.id} value={k.id}>
+                    {k.name} ({k.backend.toUpperCase()})
+                    {k.id === settings?.default_encryption_key_id ? " (default)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
       <Button type="submit" className="w-full" disabled={mutation.isPending}>
         {mutation.isPending ? "Saving..." : "Save changes"}

@@ -5,7 +5,6 @@ import {
   AlertCircle,
   Clock,
   Loader2,
-  Search,
   WifiOff,
   XCircle,
 } from "lucide-react";
@@ -24,7 +23,7 @@ type StatusConfig = {
 
 const statusConfig: Record<string, StatusConfig> = {
   verifying: {
-    icon: Search,
+    icon: Loader2,
     label: "Verifying",
     className: "text-blue-500",
     animate: true,

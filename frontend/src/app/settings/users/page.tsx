@@ -4,7 +4,13 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
-import { createUser, listUsers } from "@/lib/api";
+import {
+  createUser,
+  deleteUser,
+  listUsers,
+  updateUser,
+  type User,
+} from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +22,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -35,13 +47,17 @@ import {
 export default function UsersSettingsPage() {
   const { token, user } = useAuth();
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("operator");
-
   const isAdmin = user?.role === "admin";
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newRole, setNewRole] = useState("operator");
+
+  const [editUser, setEditUser] = useState<User | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editRole, setEditRole] = useState("");
 
   const {
     data: users = [],
@@ -54,18 +70,62 @@ export default function UsersSettingsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => createUser(token!, { name, email, password, role }),
+    mutationFn: () =>
+      createUser(token!, {
+        name: newName,
+        email: newEmail,
+        password: newPassword,
+        role: newRole,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      setOpen(false);
-      setName("");
-      setEmail("");
-      setPassword("");
-      setRole("operator");
+      setCreateOpen(false);
+      setNewName("");
+      setNewEmail("");
+      setNewPassword("");
+      setNewRole("operator");
       toast.success("User created");
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      updateUser(token!, editUser!.id, {
+        name: editName,
+        role: editRole,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setEditUser(null);
+      toast.success("User updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteUser(token!, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("User deleted");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
+      updateUser(token!, id, { is_active }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  function openEdit(u: User) {
+    setEditUser(u);
+    setEditName(u.name);
+    setEditRole(u.role);
+  }
 
   if (!isAdmin) {
     return (
@@ -84,7 +144,7 @@ export default function UsersSettingsPage() {
             Manage user accounts and roles.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button>Create user</Button>
           </DialogTrigger>
@@ -103,8 +163,8 @@ export default function UsersSettingsPage() {
                 <Label htmlFor="name">Name</Label>
                 <Input
                   id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
                   required
                 />
               </div>
@@ -113,8 +173,8 @@ export default function UsersSettingsPage() {
                 <Input
                   id="email"
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
                   required
                 />
               </div>
@@ -123,14 +183,14 @@ export default function UsersSettingsPage() {
                 <Input
                   id="password"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                   required
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
-                <Select value={role} onValueChange={setRole}>
+                <Select value={newRole} onValueChange={setNewRole}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -166,6 +226,7 @@ export default function UsersSettingsPage() {
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="w-[80px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -187,11 +248,108 @@ export default function UsersSettingsPage() {
                     {u.is_active ? "Active" : "Inactive"}
                   </Badge>
                 </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        ...
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit(u)}>
+                        Edit
+                      </DropdownMenuItem>
+                      {u.id !== user?.id && (
+                        <DropdownMenuItem
+                          onClick={() =>
+                            toggleActiveMutation.mutate({
+                              id: u.id,
+                              is_active: !u.is_active,
+                            })
+                          }
+                        >
+                          {u.is_active ? "Deactivate" : "Activate"}
+                        </DropdownMenuItem>
+                      )}
+                      {u.id !== user?.id && (
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `Delete ${u.name}? This cannot be undone.`,
+                              )
+                            ) {
+                              deleteMutation.mutate(u.id);
+                            }
+                          }}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       )}
+
+      <Dialog
+        open={!!editUser}
+        onOpenChange={(open) => {
+          if (!open) setEditUser(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit user</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              updateMutation.mutate();
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <p className="text-sm text-muted-foreground">
+                {editUser?.email}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-role">Role</Label>
+              <Select value={editRole} onValueChange={setEditRole}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="operator">Operator</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? "Saving..." : "Save"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

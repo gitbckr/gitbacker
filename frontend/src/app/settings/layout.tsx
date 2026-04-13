@@ -6,10 +6,11 @@ import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/lib/auth";
 
 const settingsNav = [
-  { href: "/settings/general", label: "General" },
+  { href: "/settings/general", label: "Scheduling" },
   { href: "/settings/credentials", label: "Git Credentials" },
   { href: "/settings/notifications", label: "Notifications" },
   { href: "/settings/encryption", label: "Encryption" },
+  { href: "/settings/account", label: "Account" },
 ];
 
 export default function SettingsLayout({

@@ -198,8 +198,8 @@ export default function CredentialsSettingsPage() {
                     placeholder={"-----BEGIN OPENSSH PRIVATE KEY-----\n..."}
                     value={credentialData}
                     onChange={(e) => setCredentialData(e.target.value)}
-                    className="font-mono text-xs"
-                    rows={8}
+                    className="font-mono text-xs max-h-48 resize-none"
+                    rows={6}
                     required
                   />
                 )}

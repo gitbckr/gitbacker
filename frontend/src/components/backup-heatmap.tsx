@@ -18,7 +18,6 @@ const CELL_SIZE = 13;
 const CELL_GAP = 3;
 const TOTAL_CELL = CELL_SIZE + CELL_GAP;
 const ROWS = 7;
-const COLS = 53;
 const DAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
 const MONTH_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -47,14 +46,16 @@ export function BackupHeatmap({ data, isLoading }: Props) {
       lookup.set(entry.date, entry);
     }
 
-    // Build 365 days ending today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Show full current year: Jan 1 through Dec 31
+    const year = new Date().getFullYear();
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year, 11, 31);
+
     const days: { date: Date; dateStr: string }[] = [];
-    for (let i = 364; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      days.push({ date: d, dateStr: formatDate(d) });
+    const cursor = new Date(yearStart);
+    while (cursor <= yearEnd) {
+      days.push({ date: new Date(cursor), dateStr: formatDate(cursor) });
+      cursor.setDate(cursor.getDate() + 1);
     }
 
     // Organize into columns (weeks). First column may be partial.
@@ -105,12 +106,13 @@ export function BackupHeatmap({ data, isLoading }: Props) {
   }, [data]);
 
   if (isLoading) {
+    const skeletonCols = 53;
     return (
       <div className="overflow-x-auto">
         <div
           className="animate-pulse rounded bg-muted"
           style={{
-            width: COLS * TOTAL_CELL,
+            width: skeletonCols * TOTAL_CELL,
             height: ROWS * TOTAL_CELL + 20,
           }}
         />
@@ -124,7 +126,7 @@ export function BackupHeatmap({ data, isLoading }: Props) {
   const svgHeight = TOP_PAD + ROWS * TOTAL_CELL;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <TooltipProvider>
         <div>
           <svg

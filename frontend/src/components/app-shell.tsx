@@ -47,8 +47,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="border-b bg-background">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="font-semibold text-lg">
+            <Link href="/dashboard" className="flex items-baseline gap-2 font-semibold text-lg">
               Gitbacker
+              {version && (
+                <span className="text-xs font-normal text-muted-foreground/60 font-mono">
+                  v{version}
+                </span>
+              )}
             </Link>
             <nav className="flex items-center gap-1">
               {navItems.map((item) => (
@@ -67,12 +72,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{user.email}</span>
-            {version && (
-              <span className="text-xs text-muted-foreground/60 font-mono">
-                v{version}
-              </span>
-            )}
+            <Link
+              href="/settings/account"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {user.email}
+            </Link>
             <Button variant="ghost" size="sm" onClick={logout}>
               Logout
             </Button>

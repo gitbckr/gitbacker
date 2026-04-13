@@ -31,7 +31,13 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
       throw new ApiError(401, "Session expired");
     }
     const detail = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new ApiError(res.status, detail.detail ?? "Request failed");
+    let message = "Request failed";
+    if (typeof detail.detail === "string") {
+      message = detail.detail;
+    } else if (Array.isArray(detail.detail) && detail.detail.length > 0) {
+      message = detail.detail.map((e: { msg?: string }) => e.msg ?? "").join("; ");
+    }
+    throw new ApiError(res.status, message);
   }
 
   if (res.status === 204) return undefined as T;
@@ -95,6 +101,25 @@ export function createUser(
   return request("/users", { method: "POST", body: data, token });
 }
 
+export function updateUser(
+  token: string,
+  id: string,
+  data: { name?: string; role?: string; is_active?: boolean },
+): Promise<User> {
+  return request(`/users/${id}`, { method: "PATCH", body: data, token });
+}
+
+export function deleteUser(token: string, id: string): Promise<void> {
+  return request(`/users/${id}`, { method: "DELETE", token });
+}
+
+export function changePassword(
+  token: string,
+  data: { current_password: string; new_password: string },
+): Promise<void> {
+  return request("/users/me/password", { method: "POST", body: data, token });
+}
+
 // --- Destinations ---
 
 export type Destination = {
@@ -143,6 +168,7 @@ export type Repository = {
   status_reason: string | null;
   destination_id: string;
   encrypt: boolean;
+  encryption_key_id: string | null;
   cron_expression: string | null;
   created_by: string;
   created_at: string;
@@ -161,6 +187,7 @@ export function createRepositories(
     urls: string[];
     destination_id?: string;
     encrypt?: boolean;
+    encryption_key_id?: string;
     cron_expression?: string;
   },
 ): Promise<Repository[]> {
@@ -173,6 +200,7 @@ export function updateRepository(
   data: {
     destination_id?: string;
     encrypt?: boolean;
+    encryption_key_id?: string;
     cron_expression?: string | null;
   },
 ): Promise<Repository> {
@@ -232,6 +260,13 @@ export function triggerRestore(
     body: data,
     token,
   });
+}
+
+export function listRestoreJobs(
+  token: string,
+  repoId: string,
+): Promise<RestoreJob[]> {
+  return request(`/repositories/${repoId}/restore-jobs`, { token });
 }
 
 export function getRestoreJob(

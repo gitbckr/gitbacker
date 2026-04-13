@@ -59,8 +59,8 @@ function StorageOverview({ destinations }: { destinations: Destination[] }) {
       : null;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
+    <Card className="py-0 gap-0">
+      <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-5">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           Storage Usage
         </CardTitle>
@@ -71,11 +71,11 @@ function StorageOverview({ destinations }: { destinations: Destination[] }) {
           View all
         </Link>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 px-5 pb-4">
         {/* Overall summary */}
         <div>
-          <div className="flex items-baseline justify-between mb-1.5">
-            <span className="text-2xl font-bold">
+          <div className="flex items-baseline justify-between mb-1">
+            <span className="text-xl font-bold">
               {formatBytes(totalUsed)}
             </span>
             {totalCapacity != null && (
@@ -164,6 +164,7 @@ export default function DashboardPage() {
     queryKey: ["backup-activity"],
     queryFn: () => getBackupActivity(token!),
     enabled: !!token,
+    refetchInterval: 30000,
   });
 
   const repoData = repos.data ?? [];
@@ -210,21 +211,21 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6">
+      <div className="space-y-4">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
             <Link key={stat.label} href={stat.href}>
-              <Card className="hover:border-foreground/20 transition-colors cursor-pointer h-full">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <Card className="hover:border-foreground/20 transition-colors cursor-pointer h-full py-0 gap-0">
+                <CardHeader className="flex flex-row items-center justify-between pt-4 px-5 pb-1">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
                     {stat.label}
                   </CardTitle>
                   <stat.icon className={`h-4 w-4 ${stat.iconColor}`} />
                 </CardHeader>
-                <CardContent>
-                  <p className={`text-3xl font-bold ${stat.color}`}>
+                <CardContent className="pb-4 px-5">
+                  <p className={`text-2xl font-bold ${stat.color}`}>
                     {stat.value}
                   </p>
                 </CardContent>
@@ -233,14 +234,14 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader>
+        <div className="grid gap-3 lg:grid-cols-3">
+          <Card className="lg:col-span-2 py-0 gap-0">
+            <CardHeader className="pt-4 px-5 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Backup Activity
               </CardTitle>
             </CardHeader>
-            <CardContent className="overflow-hidden">
+            <CardContent className="overflow-hidden px-5 pb-4">
               <BackupHeatmap
                 data={activity.data ?? []}
                 isLoading={activity.isLoading}
@@ -252,8 +253,8 @@ export default function DashboardPage() {
         </div>
 
         {(repos.isError || destinations.isError) && (
-          <Card className="border-red-200 bg-red-50">
-            <CardContent className="flex items-center gap-3 pt-6">
+          <Card className="border-red-200 bg-red-50 py-0 gap-0">
+            <CardContent className="flex items-center gap-3 py-3 px-5">
               <XCircle className="h-5 w-5 text-red-500 shrink-0" />
               <p className="text-sm text-red-800">
                 Failed to load dashboard data. Please try again.
@@ -263,8 +264,8 @@ export default function DashboardPage() {
         )}
 
         {failed > 0 && (
-          <Card className="border-red-200 bg-red-50">
-            <CardContent className="flex items-center gap-3 pt-6">
+          <Card className="border-red-200 bg-red-50 py-0 gap-0">
+            <CardContent className="flex items-center gap-3 py-3 px-5">
               <XCircle className="h-5 w-5 text-red-500 shrink-0" />
               <p className="text-sm text-red-800">
                 {failed} repo{failed > 1 ? "s" : ""} ha
@@ -279,8 +280,8 @@ export default function DashboardPage() {
         )}
 
         {totalRepos === 0 && !repos.isLoading && (
-          <Card>
-            <CardContent className="pt-6">
+          <Card className="py-0 gap-0">
+            <CardContent className="py-3 px-5">
               <p className="text-sm text-muted-foreground">
                 No repositories yet.{" "}
                 <Link href="/repos" className="font-medium underline">
