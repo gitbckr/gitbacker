@@ -1,3 +1,10 @@
+## [0.7.2](https://github.com/gitbckr/gitbacker/compare/v0.7.1...v0.7.2) (2026-04-13)
+
+
+### Bug Fixes
+
+* seed admin password handling and Docker frontend proxy ([4969fbc](https://github.com/gitbckr/gitbacker/commit/4969fbc44f3a88642cc9ac527cb9d0b9438543ea))
+
 ## [0.7.1](https://github.com/gitbckr/gitbacker/compare/v0.7.0...v0.7.1) (2026-04-13)
 
 
