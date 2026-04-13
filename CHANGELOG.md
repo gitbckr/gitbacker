@@ -1,3 +1,11 @@
+# [0.8.0](https://github.com/gitbckr/gitbacker/compare/v0.7.2...v0.8.0) (2026-04-13)
+
+
+### Features
+
+* encrypt secrets at rest, restore jobs list, and user safety guards ([b410db4](https://github.com/gitbckr/gitbacker/commit/b410db4c16e0128e05ee13f763b1989d74811b95))
+* timezone-aware scheduling, batch operations, and UI improvements ([efd4067](https://github.com/gitbckr/gitbacker/commit/efd40678d47532925bbf31f94c9c8748132e8c41))
+
 ## [0.7.2](https://github.com/gitbckr/gitbacker/compare/v0.7.1...v0.7.2) (2026-04-13)
 
 
