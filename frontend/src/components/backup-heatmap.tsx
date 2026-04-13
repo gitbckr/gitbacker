@@ -40,7 +40,7 @@ function formatDate(d: Date): string {
 }
 
 export function BackupHeatmap({ data, isLoading }: Props) {
-  const { grid, monthLabels } = useMemo(() => {
+  const { grid, monthLabels, lookup } = useMemo(() => {
     const lookup = new Map<string, DailyActivity>();
     for (const entry of data) {
       lookup.set(entry.date, entry);
@@ -97,12 +97,6 @@ export function BackupHeatmap({ data, isLoading }: Props) {
     }
 
     return { grid: columns, monthLabels: labels, lookup };
-  }, [data]);
-
-  const lookup = useMemo(() => {
-    const m = new Map<string, DailyActivity>();
-    for (const entry of data) m.set(entry.date, entry);
-    return m;
   }, [data]);
 
   if (isLoading) {

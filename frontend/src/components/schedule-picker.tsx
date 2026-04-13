@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { type Frequency, parseCron, buildCron } from "@/lib/cron";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -10,8 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-type Frequency = "manual" | "hourly" | "daily" | "weekly" | "monthly" | "cron";
 
 const DAYS_OF_WEEK = [
   { value: "0", label: "Sunday" },
@@ -57,88 +56,6 @@ function ordinalSuffix(n: number): string {
     case 2: return "nd";
     case 3: return "rd";
     default: return "th";
-  }
-}
-
-// Convert between local display hours and UTC cron hours.
-// getTimezoneOffset() returns minutes: UTC+4 → -240, UTC-5 → 300.
-// Computed inline (not module-level) so it always reflects the client clock.
-function localHourToUtc(localHour: number): number {
-  const offset = new Date().getTimezoneOffset();
-  return ((localHour + offset / 60) % 24 + 24) % 24;
-}
-
-function utcHourToLocal(utcHour: number): number {
-  const offset = new Date().getTimezoneOffset();
-  return ((utcHour - offset / 60) % 24 + 24) % 24;
-}
-
-function parseCron(cron: string): {
-  frequency: Frequency;
-  hour: string;
-  minute: string;
-  dayOfWeek: string;
-  dayOfMonth: string;
-  hourInterval: string;
-} | null {
-  const parts = cron.trim().split(/\s+/);
-  if (parts.length !== 5) return null;
-  const [min, hr, dom, , dow] = parts;
-
-  // Convert UTC hour from cron to local for display
-  const localHr = hr !== "*" && !hr.startsWith("*/")
-    ? String(utcHourToLocal(Number(hr)))
-    : hr;
-
-  // Monthly: "M H D * *"
-  if (dom !== "*" && dow === "*" && hr !== "*") {
-    return { frequency: "monthly", minute: min, hour: localHr, dayOfMonth: dom, dayOfWeek: "0", hourInterval: "1" };
-  }
-  // Weekly: "M H * * D"
-  if (dow !== "*" && dom === "*" && hr !== "*") {
-    return { frequency: "weekly", minute: min, hour: localHr, dayOfWeek: dow, dayOfMonth: "1", hourInterval: "1" };
-  }
-  // Daily: "M H * * *"
-  if (hr !== "*" && !hr.startsWith("*/") && dom === "*" && dow === "*") {
-    return { frequency: "daily", minute: min, hour: localHr, dayOfWeek: "0", dayOfMonth: "1", hourInterval: "1" };
-  }
-  // Hourly: "M * * * *" or "M */N * * *"
-  if (dom === "*" && dow === "*") {
-    const intervalMatch = hr.match(/^\*\/(\d+)$/);
-    if (hr === "*") {
-      return { frequency: "hourly", minute: min, hour: "0", dayOfWeek: "0", dayOfMonth: "1", hourInterval: "1" };
-    }
-    if (intervalMatch) {
-      return { frequency: "hourly", minute: min, hour: "0", dayOfWeek: "0", dayOfMonth: "1", hourInterval: intervalMatch[1] };
-    }
-  }
-
-  return null;
-}
-
-function buildCron(
-  frequency: Frequency,
-  hour: string,
-  minute: string,
-  dayOfWeek: string,
-  dayOfMonth: string,
-  hourInterval: string,
-): string {
-  // Convert local display hour to UTC for the cron expression
-  const utcHr = String(localHourToUtc(Number(hour)));
-  switch (frequency) {
-    case "hourly":
-      return hourInterval === "1"
-        ? `${minute} * * * *`
-        : `${minute} */${hourInterval} * * *`;
-    case "daily":
-      return `${minute} ${utcHr} * * *`;
-    case "weekly":
-      return `${minute} ${utcHr} * * ${dayOfWeek}`;
-    case "monthly":
-      return `${minute} ${utcHr} ${dayOfMonth} * *`;
-    default:
-      return "";
   }
 }
 

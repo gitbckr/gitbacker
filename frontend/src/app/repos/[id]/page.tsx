@@ -13,7 +13,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { formatDateTime } from "@/lib/utils";
+import { formatBytes, formatDateTime, formatDuration } from "@/lib/utils";
 import { AppShell } from "@/components/app-shell";
 import {
   listBackupJobs,
@@ -35,19 +35,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function formatBytes(bytes: number): string {
-  if (!bytes || bytes <= 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
-  return `${(bytes / Math.pow(k, i)).toFixed(i > 0 ? 1 : 0)} ${sizes[i]}`;
-}
-
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-}
 
 const jobStatusConfig: Record<
   string,

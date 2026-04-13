@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Destination,
+  EncryptionKey,
   Repository,
   Settings,
-  listEncryptionKeys,
   updateRepository,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -33,6 +33,7 @@ import {
 type EditRepoDialogProps = {
   repo: Repository | null;
   destinations: Destination[];
+  encryptionKeys: EncryptionKey[];
   settings: Settings | undefined;
   onOpenChange: (open: boolean) => void;
 };
@@ -40,6 +41,7 @@ type EditRepoDialogProps = {
 export function EditRepoDialog({
   repo,
   destinations,
+  encryptionKeys,
   settings,
   onOpenChange,
 }: EditRepoDialogProps) {
@@ -57,6 +59,7 @@ export function EditRepoDialog({
             key={repo.id}
             repo={repo}
             destinations={destinations}
+            encryptionKeys={encryptionKeys}
             settings={settings}
             onClose={() => onOpenChange(false)}
           />
@@ -69,6 +72,7 @@ export function EditRepoDialog({
 type EditRepoFormProps = {
   repo: Repository;
   destinations: Destination[];
+  encryptionKeys: EncryptionKey[];
   settings: Settings | undefined;
   onClose: () => void;
 };
@@ -76,6 +80,7 @@ type EditRepoFormProps = {
 function EditRepoForm({
   repo,
   destinations,
+  encryptionKeys,
   settings,
   onClose,
 }: EditRepoFormProps) {
@@ -90,18 +95,7 @@ function EditRepoForm({
     repo.cron_expression ?? "",
   );
   const [useDefaultSchedule, setUseDefaultSchedule] = useState(matchesDefault);
-  const [encrypt, setEncrypt] = useState(repo.encrypt);
-  const [encryptionKeyId, setEncryptionKeyId] = useState(
-    repo.encryption_key_id ?? settings?.default_encryption_key_id ?? "",
-  );
-
   const hasDefaultSchedule = !!settings?.default_cron_expression;
-
-  const { data: encryptionKeys = [] } = useQuery({
-    queryKey: ["encryption-keys"],
-    queryFn: () => listEncryptionKeys(token!),
-    enabled: !!token,
-  });
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -113,8 +107,6 @@ function EditRepoForm({
       return updateRepository(token!, repo.id, {
         destination_id: destinationId,
         cron_expression: effectiveCron,
-        encrypt,
-        encryption_key_id: encrypt && encryptionKeyId ? encryptionKeyId : undefined,
       });
     },
     onSuccess: () => {
@@ -178,38 +170,16 @@ function EditRepoForm({
           onChange={setCronExpression}
         />
       )}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="edit-encrypt"
-            checked={encrypt}
-            onCheckedChange={(checked) => setEncrypt(checked === true)}
-          />
-          <Label htmlFor="edit-encrypt" className="text-sm font-normal">
-            Encrypt backups
-          </Label>
-        </div>
-        {encrypt && encryptionKeys.length > 0 && (
-          <div className="space-y-2">
-            <Label htmlFor="edit-enc-key">Encryption key</Label>
-            <Select
-              value={encryptionKeyId}
-              onValueChange={setEncryptionKeyId}
-            >
-              <SelectTrigger id="edit-enc-key">
-                <SelectValue placeholder="Select key" />
-              </SelectTrigger>
-              <SelectContent>
-                {encryptionKeys.map((k) => (
-                  <SelectItem key={k.id} value={k.id}>
-                    {k.name} ({k.backend.toUpperCase()})
-                    {k.id === settings?.default_encryption_key_id ? " (default)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+      <div className="space-y-1">
+        <Label>Encryption</Label>
+        <p className="text-sm text-muted-foreground">
+          {repo.encrypt
+            ? `Enabled \u2014 ${encryptionKeys.find((k) => k.id === repo.encryption_key_id)?.name ?? "unknown key"}`
+            : "Disabled"}
+        </p>
+        <p className="text-xs text-muted-foreground/70">
+          Set at creation, cannot be changed.
+        </p>
       </div>
       <Button type="submit" className="w-full" disabled={mutation.isPending}>
         {mutation.isPending ? "Saving..." : "Save changes"}

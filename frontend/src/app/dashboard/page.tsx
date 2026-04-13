@@ -9,6 +9,7 @@ import {
   HardDrive,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { formatBytes } from "@/lib/utils";
 import { AppShell } from "@/components/app-shell";
 import {
   listRepositories,
@@ -23,17 +24,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-function formatBytes(bytes: number): string {
-  if (!bytes || bytes <= 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
-  const i = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(k)),
-    sizes.length - 1,
-  );
-  return `${(bytes / Math.pow(k, i)).toFixed(i > 0 ? 1 : 0)} ${sizes[i]}`;
-}
 
 function storageBarColor(pct: number): string {
   if (pct > 90) return "bg-red-500";

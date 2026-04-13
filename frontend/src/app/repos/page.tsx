@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { formatCron } from "@/lib/cron";
 import { formatDateTime } from "@/lib/utils";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -56,8 +57,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
@@ -142,49 +141,6 @@ function SortableHead({
       </button>
     </TableHead>
   );
-}
-
-function utcHourToLocal(utcHour: number): number {
-  const offset = new Date().getTimezoneOffset();
-  return ((utcHour - offset / 60) % 24 + 24) % 24;
-}
-
-function formatCron(cron: string | null): string {
-  if (!cron) return "Manual";
-  const parts = cron.trim().split(/\s+/);
-  if (parts.length !== 5) return cron;
-  const [min, hr, dom, , dow] = parts;
-
-  // Convert UTC hour from stored cron to local for display
-  const localHr = hr !== "*" && !hr.startsWith("*/")
-    ? String(utcHourToLocal(Number(hr)))
-    : hr;
-
-  const fmtTime = (h: string) =>
-    `${h.padStart(2, "0")}:${min.padStart(2, "0")}`;
-
-  if (dom !== "*" && dow === "*" && hr !== "*") {
-    return `Monthly on ${dom}${ordinal(Number(dom))} at ${fmtTime(localHr)}`;
-  }
-  if (dow !== "*" && dom === "*" && hr !== "*") {
-    return `${DAYS[Number(dow)] ?? dow}s at ${fmtTime(localHr)}`;
-  }
-  if (hr !== "*" && dom === "*" && dow === "*") {
-    return `Daily at ${fmtTime(localHr)}`;
-  }
-  if (dom === "*" && dow === "*") {
-    const intervalMatch = hr.match(/^\*\/(\d+)$/);
-    if (hr === "*") return "Every hour";
-    if (intervalMatch) return `Every ${intervalMatch[1]}h`;
-  }
-
-  return cron;
-}
-
-function ordinal(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return s[(v - 20) % 10] || s[v] || s[0];
 }
 
 export default function ReposPage() {
@@ -757,6 +713,7 @@ export default function ReposPage() {
         <EditRepoDialog
           repo={editingRepo}
           destinations={destinations}
+          encryptionKeys={encryptionKeys}
           settings={settings}
           onOpenChange={(next) => {
             if (!next) setEditingRepo(null);

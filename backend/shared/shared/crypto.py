@@ -33,6 +33,7 @@ def decrypt_field(value: str, secret: str) -> str:
     """Decrypt a Fernet token. If decryption fails (legacy plain text), returns as-is."""
     try:
         return _get_fernet(secret).decrypt(value.encode()).decode()
-    except (InvalidToken, Exception):
+    except InvalidToken:
         # Legacy unencrypted value — return as-is
+        logger.debug("Fernet decryption failed, treating as plaintext")
         return value
