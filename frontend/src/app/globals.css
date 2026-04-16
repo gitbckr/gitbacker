@@ -124,3 +124,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Logo states */
+.logo-stale img {
+  filter: grayscale(100%);
+  opacity: 0.35;
+  transition: filter 0.2s, opacity 0.2s;
+}
+
+.logo-stale:hover img {
+  filter: grayscale(0%);
+  opacity: 1;
+}

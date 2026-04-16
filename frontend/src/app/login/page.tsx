@@ -41,7 +41,10 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-2xl">Gitbacker</CardTitle>
+          <div className="flex items-center gap-2 mb-1">
+            <img src="/gitbacker-logo-filled.svg" alt="" className="h-7 w-7" />
+            <CardTitle className="text-2xl">Gitbacker</CardTitle>
+          </div>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>

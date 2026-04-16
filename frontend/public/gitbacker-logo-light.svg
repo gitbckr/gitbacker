@@ -1,0 +1,15 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shield -->
+  <path d="M42 52 L158 52 Q158 52 158 66 L158 114 Q158 158 100 178 Q42 158 42 114 L42 66 Q42 52 56 52 Z"
+    fill="none" stroke="#1f2328" stroke-width="7" stroke-linejoin="round"/>
+  <!-- Trunk -->
+  <line x1="100" y1="82" x2="100" y2="138" stroke="#1f2328" stroke-width="6" stroke-linecap="round"/>
+  <!-- Branch -->
+  <line x1="100" y1="108" x2="128" y2="92" stroke="#1f2328" stroke-width="6" stroke-linecap="round"/>
+  <!-- Top node -->
+  <circle cx="100" cy="82" r="10" fill="#1f2328"/>
+  <!-- Bottom node -->
+  <circle cx="100" cy="138" r="10" fill="#1f2328"/>
+  <!-- Branch node -->
+  <circle cx="128" cy="92" r="8" fill="#1f2328"/>
+</svg>

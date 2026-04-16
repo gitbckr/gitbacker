@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
+import { Moon, Sun } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { getHealth } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -13,6 +15,26 @@ const navItems = [
   { href: "/destinations", label: "Destinations" },
   { href: "/settings", label: "Settings" },
 ];
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return <div className="h-8 w-8" />;
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-8 w-8 px-0"
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+    >
+      <Sun className="h-4 w-4 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
+      <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
+      <span className="sr-only">Toggle theme</span>
+    </Button>
+  );
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
@@ -34,8 +56,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="flex h-screen items-center justify-center logo-stale">
+        <img src="/gitbacker-logo-filled.svg" alt="Gitbacker" className="h-10 w-10 animate-pulse" />
       </div>
     );
   }
@@ -47,7 +69,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="border-b bg-background">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="flex items-baseline gap-2 font-semibold text-lg">
+            <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
+              <img
+                src="/gitbacker-logo-dark.svg"
+                alt=""
+                className="h-6 w-6 dark:block hidden"
+              />
+              <img
+                src="/gitbacker-logo-light.svg"
+                alt=""
+                className="h-6 w-6 dark:hidden block"
+              />
               Gitbacker
               {version && (
                 <span className="text-xs font-normal text-muted-foreground/60 font-mono">
@@ -72,6 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <Link
               href="/settings/account"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"

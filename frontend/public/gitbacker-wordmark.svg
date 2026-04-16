@@ -1,0 +1,24 @@
+<svg width="320" height="72" viewBox="0 0 320 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Icon mark (scaled to 56px) -->
+  <!-- Shield -->
+  <path d="M4 14 L52 14 Q52 14 52 20 L52 40 Q52 58 28 66 Q4 58 4 40 L4 20 Q4 14 10 14 Z"
+    fill="none" stroke="#58a6ff" stroke-width="3" stroke-linejoin="round"/>
+  <!-- Trunk -->
+  <line x1="28" y1="24" x2="28" y2="46" stroke="#58a6ff" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Branch -->
+  <line x1="28" y1="35" x2="38" y2="29" stroke="#58a6ff" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Top node -->
+  <circle cx="28" cy="24" r="4" fill="#58a6ff"/>
+  <!-- Bottom node -->
+  <circle cx="28" cy="46" r="4" fill="#58a6ff"/>
+  <!-- Branch node -->
+  <circle cx="38" cy="29" r="3" fill="#58a6ff"/>
+
+  <!-- Wordmark text -->
+  <text x="68" y="47"
+    font-family="'JetBrains Mono', 'Fira Code', 'Courier New', monospace"
+    font-weight="700"
+    font-size="32"
+    letter-spacing="-1"
+    fill="#e6edf3">gitbacker</text>
+</svg>
