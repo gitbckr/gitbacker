@@ -8,6 +8,7 @@ import { changePassword } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/password-input";
 
 export default function AccountSettingsPage() {
   const { token, user } = useAuth();
@@ -63,8 +64,8 @@ export default function AccountSettingsPage() {
               toast.error("Passwords do not match");
               return;
             }
-            if (newPwd.length < 4) {
-              toast.error("Password must be at least 4 characters");
+            if (newPwd.length < 8) {
+              toast.error("Password must be at least 8 characters");
               return;
             }
             passwordMutation.mutate();
@@ -73,9 +74,8 @@ export default function AccountSettingsPage() {
         >
           <div className="space-y-2">
             <Label htmlFor="current-pwd">Current password</Label>
-            <Input
+            <PasswordInput
               id="current-pwd"
-              type="password"
               value={currentPwd}
               onChange={(e) => setCurrentPwd(e.target.value)}
               required
@@ -83,19 +83,23 @@ export default function AccountSettingsPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="new-pwd">New password</Label>
-            <Input
+            <PasswordInput
               id="new-pwd"
-              type="password"
               value={newPwd}
               onChange={(e) => setNewPwd(e.target.value)}
+              minLength={8}
               required
             />
+            {newPwd.length > 0 && newPwd.length < 8 && (
+              <p className="text-xs text-red-500">
+                Must be at least 8 characters
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm-pwd">Confirm new password</Label>
-            <Input
+            <PasswordInput
               id="confirm-pwd"
-              type="password"
               value={confirmPwd}
               onChange={(e) => setConfirmPwd(e.target.value)}
               required

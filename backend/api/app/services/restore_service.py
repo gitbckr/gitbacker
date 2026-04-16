@@ -52,8 +52,14 @@ async def get_snapshot_download_path(
             detail="Destination not found",
         )
 
-    archive_path = Path(destination.path).resolve() / snapshot.artifact_filename
-    if not archive_path.is_file():
+    dest_root = Path(destination.path).resolve()
+    archive_path = (dest_root / snapshot.artifact_filename).resolve()
+    if not archive_path.is_relative_to(dest_root):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid archive path",
+        )
+    if archive_path.is_symlink() or not archive_path.is_file():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Archive file not found on disk",
@@ -94,9 +100,11 @@ async def get_snapshot_download_path(
     )
     if result.returncode != 0:
         Path(tmp.name).unlink(missing_ok=True)
+        import logging
+        logging.getLogger(__name__).error("GPG decryption failed: %s", result.stderr.strip())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Decryption failed: {result.stderr.strip()}",
+            detail="Decryption failed",
         )
 
     return Path(tmp.name), decrypted_name

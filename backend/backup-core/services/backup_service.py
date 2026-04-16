@@ -21,6 +21,7 @@ from repositories import (
 )
 from services import git_service
 from services.common import resolve_credential, send_notifications
+from services.git_service import scrub_credentials
 from services.encryption import get_encryption_provider
 from services.notifications import NotificationEvent
 from shared.enums import ArchiveFormat, JobStatus, RepoStatus
@@ -150,10 +151,10 @@ def run_backup(session: Session, job_id: str) -> dict:
 
             log_lines.append(f"Cloning {repo.url} ...")
             success, output = git_service.clone_mirror(repo.url, clone_path, credential)
-            log_lines.append(output)
+            log_lines.append(scrub_credentials(output))
 
             if not success:
-                raise RuntimeError(f"git clone failed: {output}")
+                raise RuntimeError(f"git clone failed: {scrub_credentials(output)}")
 
             # Create tar.gz archive in temp dir (never at destination unencrypted)
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")

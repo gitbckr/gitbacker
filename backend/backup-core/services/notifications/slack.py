@@ -1,7 +1,10 @@
+import ipaddress
 import json
 import logging
+import socket
 import urllib.request
 import urllib.error
+from urllib.parse import urlparse
 
 from .import NotificationEvent
 
@@ -28,6 +31,17 @@ class SlackNotificationProvider:
             raise RuntimeError("webhook_url is required in config_data")
         if not self._webhook_url.startswith("https://"):
             raise RuntimeError("webhook_url must start with https://")
+        # SSRF protection: reject internal/private IPs
+        parsed = urlparse(self._webhook_url)
+        hostname = parsed.hostname or ""
+        try:
+            addr = ipaddress.ip_address(socket.gethostbyname(hostname))
+            if addr.is_private or addr.is_loopback or addr.is_link_local:
+                raise RuntimeError(
+                    f"webhook_url must not point to a private/internal address ({hostname})"
+                )
+        except socket.gaierror:
+            raise RuntimeError(f"Cannot resolve webhook hostname: {hostname}")
 
     def send(self, event: NotificationEvent) -> None:
         self.validate_config()

@@ -9,6 +9,9 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 from urllib.parse import quote, urlparse
 
+# Matches credentials embedded in URLs: https://user:token@host/...
+_CREDENTIAL_RE = re.compile(r"(https?://)([^@/]+@)", re.IGNORECASE)
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -58,6 +61,11 @@ def extract_host(url: str) -> str | None:
     if parsed.hostname:
         return parsed.hostname.lower()
     return None
+
+
+def scrub_credentials(text: str) -> str:
+    """Remove embedded credentials from URLs in git output."""
+    return _CREDENTIAL_RE.sub(r"\1", text)
 
 
 # ---------------------------------------------------------------------------

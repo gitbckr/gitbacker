@@ -44,6 +44,13 @@ class UserCreate(BaseModel):
     password: str
     role: UserRole = UserRole.OPERATOR
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
@@ -73,6 +80,13 @@ class UserUpdate(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
 
 
 # --- Destinations ---

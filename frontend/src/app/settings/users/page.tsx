@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/password-input";
 import {
   Dialog,
   DialogContent,
@@ -180,13 +181,18 @@ export default function UsersSettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={8}
                   required
                 />
+                {newPassword.length > 0 && newPassword.length < 8 && (
+                  <p className="text-xs text-red-500">
+                    Must be at least 8 characters
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>

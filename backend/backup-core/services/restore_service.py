@@ -16,6 +16,7 @@ from repositories import (
 )
 from services import git_service
 from services.common import resolve_credential, send_notifications
+from services.git_service import scrub_credentials
 from services.encryption import get_encryption_provider
 from services.notifications import NotificationEvent
 from shared.enums import ArchiveFormat, JobStatus
@@ -47,7 +48,10 @@ def run_restore(session: Session, restore_job_id: str) -> dict:
         if not destination:
             raise RuntimeError("Destination no longer exists")
 
-        archive_path = Path(destination.path).resolve() / snapshot.artifact_filename
+        dest_root = Path(destination.path).resolve()
+        archive_path = (dest_root / snapshot.artifact_filename).resolve()
+        if not archive_path.is_relative_to(dest_root):
+            raise RuntimeError("Invalid archive path")
         if not archive_path.is_file():
             raise RuntimeError(f"Archive file not found: {archive_path}")
 
@@ -84,7 +88,7 @@ def run_restore(session: Session, restore_job_id: str) -> dict:
             extract_dir = tmp_path / "extracted"
             extract_dir.mkdir()
             log_lines.append("Extracting archive ...")
-            shutil.unpack_archive(str(tar_path), str(extract_dir), "gztar")
+            shutil.unpack_archive(str(tar_path), str(extract_dir), "gztar", filter="data")
 
             # The backup task wraps the bare repo in a single subdirectory
             entries = [p for p in extract_dir.iterdir() if p.is_dir()]
@@ -103,16 +107,17 @@ def run_restore(session: Session, restore_job_id: str) -> dict:
             success, output = git_service.force_mirror_push(
                 str(bare_repo), restore_job.restore_target_url, credential
             )
-            log_lines.append(output)
+            safe_output = scrub_credentials(output)
+            log_lines.append(safe_output)
             if not success:
-                if "terminal prompts disabled" in output:
+                if "terminal prompts disabled" in safe_output:
                     raise RuntimeError(
                         "Push failed: no push access to "
                         f"{restore_job.restore_target_url}. "
                         "Add a git credential for this host in "
                         "Settings > Git Credentials."
                     )
-                raise RuntimeError(f"git push failed: {output.strip() or 'unknown error'}")
+                raise RuntimeError(f"git push failed: {safe_output.strip() or 'unknown error'}")
 
             log_lines.append("Restore complete")
 
@@ -230,7 +235,10 @@ def run_restore_preview(session: Session, preview_id: str) -> dict:
         if not destination:
             raise RuntimeError("Destination no longer exists")
 
-        archive_path = Path(destination.path).resolve() / snapshot.artifact_filename
+        dest_root = Path(destination.path).resolve()
+        archive_path = (dest_root / snapshot.artifact_filename).resolve()
+        if not archive_path.is_relative_to(dest_root):
+            raise RuntimeError("Invalid archive path")
         if not archive_path.is_file():
             raise RuntimeError(f"Archive file not found: {archive_path}")
 
@@ -259,7 +267,7 @@ def run_restore_preview(session: Session, preview_id: str) -> dict:
             # Extract
             extract_dir = tmp_path / "extracted"
             extract_dir.mkdir()
-            shutil.unpack_archive(str(tar_path), str(extract_dir), "gztar")
+            shutil.unpack_archive(str(tar_path), str(extract_dir), "gztar", filter="data")
 
             entries = [p for p in extract_dir.iterdir() if p.is_dir()]
             if len(entries) != 1:
@@ -327,7 +335,10 @@ def run_detailed_preview(session: Session, preview_id: str) -> dict:
         if not destination:
             raise RuntimeError("Destination no longer exists")
 
-        archive_path = Path(destination.path).resolve() / snapshot.artifact_filename
+        dest_root = Path(destination.path).resolve()
+        archive_path = (dest_root / snapshot.artifact_filename).resolve()
+        if not archive_path.is_relative_to(dest_root):
+            raise RuntimeError("Invalid archive path")
         if not archive_path.is_file():
             raise RuntimeError(f"Archive file not found: {archive_path}")
 
@@ -356,7 +367,7 @@ def run_detailed_preview(session: Session, preview_id: str) -> dict:
             # Extract
             extract_dir = tmp_path / "extracted"
             extract_dir.mkdir()
-            shutil.unpack_archive(str(tar_path), str(extract_dir), "gztar")
+            shutil.unpack_archive(str(tar_path), str(extract_dir), "gztar", filter="data")
 
             entries = [p for p in extract_dir.iterdir() if p.is_dir()]
             if len(entries) != 1:
