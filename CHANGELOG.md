@@ -1,3 +1,10 @@
+# [0.10.0](https://github.com/gitbckr/gitbacker/compare/v0.9.0...v0.10.0) (2026-04-16)
+
+
+### Features
+
+* snapshot download and git subprocess hardening ([8c17bb3](https://github.com/gitbckr/gitbacker/commit/8c17bb353e594fb5a8c8c357bfcbf704a715b8bc))
+
 # [0.9.0](https://github.com/gitbckr/gitbacker/compare/v0.8.0...v0.9.0) (2026-04-13)
 
 
