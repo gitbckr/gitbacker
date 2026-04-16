@@ -5,9 +5,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import DATABASE_URL
 from app.db import engine
 from app.routers import auth, dashboard, destinations, encryption_keys, git_credentials, notification_channels, repositories, restore, settings, users
-from shared.models import Base
 
 
 def _read_version() -> str:
@@ -23,9 +23,14 @@ def _read_version() -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # In dev, create tables if they don't exist (migrations are preferred in prod)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Run alembic migrations on startup
+    from alembic.config import Config as AlembicConfig
+    from alembic import command as alembic_command
+    from pathlib import Path
+
+    alembic_cfg = AlembicConfig(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
+    alembic_cfg.set_main_option("sqlalchemy.url", DATABASE_URL)
+    alembic_command.upgrade(alembic_cfg, "head")
 
     # Clean up stale jobs left in RUNNING/PENDING state from a previous crash.
     # These will never complete — mark them as failed so the UI doesn't show
