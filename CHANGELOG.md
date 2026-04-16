@@ -1,3 +1,10 @@
+# [0.13.0](https://github.com/gitbckr/gitbacker/compare/v0.12.0...v0.13.0) (2026-04-16)
+
+
+### Features
+
+* add logo assets, dark/light theme toggle, and stale logo state ([4f452a0](https://github.com/gitbckr/gitbacker/commit/4f452a07a9a0ddd12256fbc1c042c4dd409b8837))
+
 # [0.12.0](https://github.com/gitbckr/gitbacker/compare/v0.11.0...v0.12.0) (2026-04-16)
 
 
