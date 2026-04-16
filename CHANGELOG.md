@@ -1,3 +1,15 @@
+# [0.11.0](https://github.com/gitbckr/gitbacker/compare/v0.10.0...v0.11.0) (2026-04-16)
+
+
+### Bug Fixes
+
+* security hardening — credential scrubbing, path traversal, password validation ([d5f4253](https://github.com/gitbckr/gitbacker/commit/d5f42539e047570b0580d260c92832f5fcb5a136))
+
+
+### Features
+
+* add alembic migrations, replace create_all with upgrade on startup ([17009ba](https://github.com/gitbckr/gitbacker/commit/17009ba5f2d8c5f8456c471d3d5cf560efbc7f28))
+
 # [0.10.0](https://github.com/gitbckr/gitbacker/compare/v0.9.0...v0.10.0) (2026-04-16)
 
 
