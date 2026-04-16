@@ -23,14 +23,21 @@ def _read_version() -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Run alembic migrations on startup
-    from alembic.config import Config as AlembicConfig
-    from alembic import command as alembic_command
+    # Run alembic migrations on startup (subprocess to avoid async event loop conflict)
+    import subprocess
     from pathlib import Path
 
-    alembic_cfg = AlembicConfig(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
-    alembic_cfg.set_main_option("sqlalchemy.url", DATABASE_URL)
-    alembic_command.upgrade(alembic_cfg, "head")
+    result = subprocess.run(
+        ["alembic", "upgrade", "head"],
+        cwd=str(Path(__file__).resolve().parent),
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if result.returncode != 0:
+        import logging
+        logging.getLogger(__name__).error("Alembic migration failed:\n%s", result.stderr)
+        raise RuntimeError(f"Database migration failed: {result.stderr.strip()}")
 
     # Clean up stale jobs left in RUNNING/PENDING state from a previous crash.
     # These will never complete — mark them as failed so the UI doesn't show
