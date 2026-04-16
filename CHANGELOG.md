@@ -1,3 +1,10 @@
+# [0.12.0](https://github.com/gitbckr/gitbacker/compare/v0.11.0...v0.12.0) (2026-04-16)
+
+
+### Features
+
+* add alembic migrations, replace create_all with upgrade on startup ([2f9487d](https://github.com/gitbckr/gitbacker/commit/2f9487d99c86ec5a0956bbe48a4f9fa3e7f151c1))
+
 # [0.11.0](https://github.com/gitbckr/gitbacker/compare/v0.10.0...v0.11.0) (2026-04-16)
 
 
