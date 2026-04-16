@@ -1,6 +1,8 @@
+import os
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
@@ -28,6 +30,35 @@ async def list_snapshots(
     user: User = Depends(get_current_user),
 ) -> list[BackupSnapshot]:
     return await restore_service.list_snapshots(db, user, str(repo_id))
+
+
+@router.get("/{repo_id}/snapshots/{snapshot_id}/download")
+async def download_snapshot(
+    repo_id: uuid.UUID,
+    snapshot_id: uuid.UUID,
+    decrypt: bool = Query(False),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> FileResponse:
+    path, filename = await restore_service.get_snapshot_download_path(
+        db, user, str(repo_id), str(snapshot_id), decrypt
+    )
+    media_type = (
+        "application/gzip" if filename.endswith(".tar.gz")
+        else "application/octet-stream"
+    )
+
+    async def cleanup() -> None:
+        # Clean up temp decrypted files (not the original archive)
+        if decrypt and str(path).startswith("/tmp"):
+            os.unlink(str(path))
+
+    return FileResponse(
+        path=str(path),
+        filename=filename,
+        media_type=media_type,
+        background=cleanup,
+    )
 
 
 @router.post(

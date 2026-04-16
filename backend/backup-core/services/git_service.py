@@ -23,8 +23,14 @@ logger = logging.getLogger(__name__)
 
 _ALLOWED_SCHEMES = ("https://", "http://", "git://", "ssh://", "git@")
 
-# Base env: prevents git from hanging on interactive credential prompts.
-_BASE_ENV = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+# Base env: prevents git/ssh from hanging on interactive prompts.
+_BASE_ENV = {
+    **os.environ,
+    "GIT_TERMINAL_PROMPT": "0",
+    "GIT_ASKPASS": "",          # disable askpass credential helpers
+    "SSH_ASKPASS": "",          # disable SSH passphrase GUI prompts
+    "DISPLAY": "",              # ensure no X11 prompts
+}
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +101,8 @@ def _credential_env(
         env["GIT_SSH_COMMAND"] = (
             f"ssh -i {keypath} "
             "-o StrictHostKeyChecking=accept-new "
-            "-o IdentitiesOnly=yes"
+            "-o IdentitiesOnly=yes "
+            "-o BatchMode=yes"
         )
         yield env, url
     finally:
@@ -125,6 +132,7 @@ def verify_access(
                 capture_output=True,
                 text=True,
                 timeout=30,
+                stdin=subprocess.DEVNULL,
                 env=env,
             )
         if result.returncode == 0:
@@ -149,6 +157,7 @@ def clone_mirror(
                 capture_output=True,
                 text=True,
                 timeout=300,
+                stdin=subprocess.DEVNULL,
                 env=env,
             )
         output = result.stdout
@@ -188,6 +197,7 @@ def force_mirror_push(
                 capture_output=True,
                 text=True,
                 timeout=600,
+                stdin=subprocess.DEVNULL,
                 env=env,
             )
         output = (result.stdout or "") + (result.stderr or "")
@@ -203,6 +213,7 @@ def list_local_refs(bare_repo_path: str) -> dict[str, str]:
         capture_output=True,
         text=True,
         timeout=30,
+        stdin=subprocess.DEVNULL,
     )
     refs: dict[str, str] = {}
     for line in result.stdout.strip().splitlines():
@@ -224,6 +235,7 @@ def list_remote_refs(
             capture_output=True,
             text=True,
             timeout=60,
+            stdin=subprocess.DEVNULL,
             env=env,
         )
     if result.returncode != 0:
@@ -251,17 +263,21 @@ def fetch_remote(
             result = subprocess.run(
                 [
                     "git", "--git-dir", bare_repo_path,
-                    "fetch", effective_url, "+refs/*:refs/fetched/*",
+                    "fetch", "--no-tags",
+                    "--", effective_url,
+                    "+refs/heads/*:refs/fetched/heads/*",
+                    "+refs/tags/*:refs/fetched/tags/*",
                 ],
                 capture_output=True,
                 text=True,
-                timeout=600,
+                timeout=300,
+                stdin=subprocess.DEVNULL,
                 env=env,
             )
         output = (result.stdout or "") + (result.stderr or "")
         return result.returncode == 0, output
     except subprocess.TimeoutExpired:
-        return False, "Timeout: fetch took longer than 600 seconds"
+        return False, "Timeout: fetch took longer than 300 seconds"
 
 
 def diff_numstat(
@@ -277,6 +293,7 @@ def diff_numstat(
         capture_output=True,
         text=True,
         timeout=60,
+        stdin=subprocess.DEVNULL,
     )
     stats: list[tuple[int, int, str]] = []
     for line in result.stdout.strip().splitlines():

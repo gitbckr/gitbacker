@@ -1,12 +1,23 @@
+import subprocess
+import tempfile
 import uuid
+from pathlib import Path
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.celery_app import celery
-from app.repositories import restore_job_repo, restore_preview_repo, snapshot_repo
+from app.config import JWT_SECRET
+from app.repositories import (
+    destination_repo,
+    encryption_key_repo,
+    restore_job_repo,
+    restore_preview_repo,
+    snapshot_repo,
+)
 from app.services.repository_service import check_repo_access, get_repo_or_404
-from shared.enums import JobStatus
+from shared.crypto import decrypt_field
+from shared.enums import ArchiveFormat, JobStatus
 from shared.models import BackupSnapshot, RestoreJob, RestorePreview, User
 from shared.schemas import RestoreJobCreate, RestorePreviewCreate
 from shared.task_signatures import (
@@ -14,6 +25,81 @@ from shared.task_signatures import (
     TASK_RUN_RESTORE,
     TASK_RUN_RESTORE_PREVIEW,
 )
+
+
+async def get_snapshot_download_path(
+    db: AsyncSession, user: User, repo_id: str, snapshot_id: str, decrypt: bool
+) -> tuple[Path, str]:
+    """Resolve the file path for a snapshot download. Returns (path, filename).
+
+    If decrypt=True and the snapshot is encrypted, decrypts to a temp file and
+    returns that path. Caller is responsible for cleanup of temp files.
+    """
+    repo = await get_repo_or_404(db, repo_id)
+    await check_repo_access(db, user, repo)
+
+    snapshot = await snapshot_repo.get_by_id(db, uuid.UUID(snapshot_id))
+    if not snapshot or snapshot.repository_id != repo.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Snapshot not found for this repository",
+        )
+
+    destination = await destination_repo.get_by_id(db, snapshot.destination_id)
+    if not destination:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Destination not found",
+        )
+
+    archive_path = Path(destination.path).resolve() / snapshot.artifact_filename
+    if not archive_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Archive file not found on disk",
+        )
+
+    if not decrypt or snapshot.archive_format != ArchiveFormat.TAR_GZ_GPG:
+        return archive_path, snapshot.artifact_filename
+
+    # Decrypt to temp file
+    if not snapshot.encryption_key_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Encrypted snapshot has no encryption key recorded",
+        )
+    enc_key = await encryption_key_repo.get_by_id(db, snapshot.encryption_key_id)
+    if not enc_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Encryption key no longer exists",
+        )
+
+    passphrase = decrypt_field(enc_key.key_data, JWT_SECRET)
+    decrypted_name = snapshot.artifact_filename.removesuffix(".gpg")
+    tmp = tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False)
+    tmp.close()
+
+    result = subprocess.run(
+        [
+            "gpg", "--decrypt", "--batch", "--yes",
+            "--passphrase-fd", "0",
+            "--output", tmp.name,
+            str(archive_path),
+        ],
+        input=passphrase,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    if result.returncode != 0:
+        Path(tmp.name).unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Decryption failed: {result.stderr.strip()}",
+        )
+
+    return Path(tmp.name), decrypted_name
 
 
 async def list_snapshots(

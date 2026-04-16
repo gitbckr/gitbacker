@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   ArrowRight,
   CheckCircle2,
+  Download,
   GitBranch,
   Loader2,
   Lock,
@@ -88,6 +89,7 @@ function RestoreFlow({
   const [targetUrl, setTargetUrl] = useState(repo.url);
   const [confirmed, setConfirmed] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [detailRequested, setDetailRequested] = useState(false);
   const [triggeredJobId, setTriggeredJobId] = useState<string | null>(null);
 
   const snapshotsQuery = useQuery({
@@ -135,10 +137,9 @@ function RestoreFlow({
     refetchInterval: (query) => {
       const p = query.state.data;
       if (!p) return 3000;
-      // Keep polling while quick preview is running
       if (!isTerminal(p.status)) return 3000;
-      // Keep polling while detailed preview is loading
-      if (p.detail_status === "pending" || p.detail_status === "running")
+      // Keep polling while detailed preview is in flight
+      if (detailRequested && p.detail_status !== "succeeded" && p.detail_status !== "failed")
         return 3000;
       return false;
     },
@@ -159,6 +160,7 @@ function RestoreFlow({
   if (step === 1) {
     return (
       <StepSelectSnapshot
+        repoId={repo.id}
         snapshots={snapshotsQuery.data ?? []}
         isLoading={snapshotsQuery.isLoading}
         isError={snapshotsQuery.isError}
@@ -190,9 +192,11 @@ function RestoreFlow({
         confirmed={confirmed}
         onConfirmedChange={setConfirmed}
         isPending={restoreMutation.isPending}
+        onDetailRequested={() => setDetailRequested(true)}
         onBack={() => {
           setPreviewId(null);
           setConfirmed(false);
+          setDetailRequested(false);
           setStep(2);
         }}
         onSubmit={() => restoreMutation.mutate()}
@@ -211,7 +215,30 @@ function RestoreFlow({
 
 // --- Step 1: pick snapshot ---
 
+function downloadSnapshot(repoId: string, snapshotId: string, decrypt: boolean) {
+  const token = localStorage.getItem("gitbacker_token");
+  const url = `/api/repositories/${repoId}/snapshots/${snapshotId}/download${decrypt ? "?decrypt=true" : ""}`;
+  const a = document.createElement("a");
+  // Use fetch to include auth header, then trigger download from blob
+  fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    .then((res) => {
+      if (!res.ok) throw new Error("Download failed");
+      const filename =
+        res.headers.get("content-disposition")?.match(/filename="?(.+?)"?$/)?.[1] ??
+        "snapshot.tar.gz";
+      return res.blob().then((blob) => ({ blob, filename }));
+    })
+    .then(({ blob, filename }) => {
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    })
+    .catch(() => toast.error("Failed to download snapshot"));
+}
+
 function StepSelectSnapshot({
+  repoId,
   snapshots,
   isLoading,
   isError,
@@ -220,6 +247,7 @@ function StepSelectSnapshot({
   onCancel,
   onNext,
 }: {
+  repoId: string;
   snapshots: BackupSnapshot[];
   isLoading: boolean;
   isError: boolean;
@@ -244,40 +272,70 @@ function StepSelectSnapshot({
         ) : (
           <div className="max-h-72 space-y-1.5 overflow-y-auto rounded-md border p-1">
             {snapshots.map((s, idx) => (
-              <button
+              <div
                 key={s.id}
-                type="button"
-                onClick={() => onSelect(s.id)}
-                className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors ${
+                className={`flex items-center rounded-md border text-sm transition-colors ${
                   selectedId === s.id
                     ? "border-primary bg-primary/5"
                     : "border-transparent hover:bg-muted/60"
                 }`}
               >
-                <div className="space-y-0.5">
-                  <div className="font-medium">
-                    Snapshot #{snapshots.length - idx}
-                  </div>
-                  <div
-                    className="text-xs text-muted-foreground"
-                    title={formatDateTime(s.created_at)}
-                  >
-                    {formatDateTime(s.created_at)}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {s.archive_format === "tar.gz.gpg" && (
-                    <span
-                      title="Encrypted"
-                      className="inline-flex items-center gap-1"
+                <button
+                  type="button"
+                  onClick={() => onSelect(s.id)}
+                  className="flex flex-1 items-center justify-between px-3 py-2 text-left"
+                >
+                  <div className="space-y-0.5">
+                    <div className="font-medium">
+                      Snapshot #{snapshots.length - idx}
+                    </div>
+                    <div
+                      className="text-xs text-muted-foreground"
+                      title={formatDateTime(s.created_at)}
                     >
-                      <Lock className="h-3 w-3" />
-                      Encrypted
-                    </span>
+                      {formatDateTime(s.created_at)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {s.archive_format === "tar.gz.gpg" && (
+                      <span
+                        title="Encrypted"
+                        className="inline-flex items-center gap-1"
+                      >
+                        <Lock className="h-3 w-3" />
+                        Encrypted
+                      </span>
+                    )}
+                    <span className="font-mono">{s.id.slice(0, 8)}</span>
+                  </div>
+                </button>
+                <div className="flex items-center gap-1 pr-2">
+                  <button
+                    type="button"
+                    title="Download archive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      downloadSnapshot(repoId, s.id, false);
+                    }}
+                    className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                  {s.archive_format === "tar.gz.gpg" && (
+                    <button
+                      type="button"
+                      title="Download decrypted"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadSnapshot(repoId, s.id, true);
+                      }}
+                      className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                    </button>
                   )}
-                  <span className="font-mono">{s.id.slice(0, 8)}</span>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
@@ -424,6 +482,7 @@ function StepPreview({
   confirmed,
   onConfirmedChange,
   isPending,
+  onDetailRequested,
   onBack,
   onSubmit,
 }: {
@@ -432,6 +491,7 @@ function StepPreview({
   confirmed: boolean;
   onConfirmedChange: (v: boolean) => void;
   isPending: boolean;
+  onDetailRequested: () => void;
   onBack: () => void;
   onSubmit: () => void;
 }) {
@@ -440,6 +500,7 @@ function StepPreview({
 
   const detailMutation = useMutation({
     mutationFn: () => triggerDetailedPreview(token!, repoId, preview!.id),
+    onSuccess: () => onDetailRequested(),
     onError: (err: Error) => toast.error(err.message),
   });
 

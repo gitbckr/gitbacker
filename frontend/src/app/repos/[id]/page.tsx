@@ -185,7 +185,7 @@ export default function RepoDetailPage() {
                         {job.kind === "backup"
                           ? job.trigger_type ?? "—"
                           : job.restore_target_url
-                            ? new URL(job.restore_target_url).pathname.split("/").pop()
+                            ? job.restore_target_url.split(/[/:]/).pop()?.replace(".git", "") ?? "—"
                             : "—"}
                       </span>
                     </TableCell>
