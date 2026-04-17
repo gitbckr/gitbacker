@@ -1,3 +1,10 @@
+## [0.16.2](https://github.com/gitbckr/gitbacker/compare/v0.16.1...v0.16.2) (2026-04-17)
+
+
+### Bug Fixes
+
+* support PEM/PKCS8 private keys for public key derivation ([b425745](https://github.com/gitbckr/gitbacker/commit/b42574543eb541f7a14c887ce56d1ed6570979e3))
+
 ## [0.16.1](https://github.com/gitbckr/gitbacker/compare/v0.16.0...v0.16.1) (2026-04-17)
 
 
