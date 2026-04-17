@@ -35,18 +35,9 @@ repopermission = sa.Enum("VIEW", "MANAGE", name="repopermission")
 
 
 def upgrade() -> None:
-    # --- Enums ---
-    userrole.create(op.get_bind(), checkfirst=True)
-    storagetype.create(op.get_bind(), checkfirst=True)
-    encryptionbackend.create(op.get_bind(), checkfirst=True)
-    credentialtype.create(op.get_bind(), checkfirst=True)
-    notificationchanneltype.create(op.get_bind(), checkfirst=True)
-    identityprovider.create(op.get_bind(), checkfirst=True)
-    repostatus.create(op.get_bind(), checkfirst=True)
-    jobstatus.create(op.get_bind(), checkfirst=True)
-    triggertype.create(op.get_bind(), checkfirst=True)
-    archiveformat.create(op.get_bind(), checkfirst=True)
-    repopermission.create(op.get_bind(), checkfirst=True)
+    # Enums are created automatically by op.create_table when it encounters
+    # Enum columns. No explicit .create() needed — doing both causes
+    # DuplicateObjectError on Postgres.
 
     # --- users ---
     op.create_table(
