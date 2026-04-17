@@ -1,3 +1,15 @@
+# [0.15.0](https://github.com/gitbckr/gitbacker/compare/v0.14.1...v0.15.0) (2026-04-17)
+
+
+### Bug Fixes
+
+* set-default destination fails with unique constraint violation ([bd363be](https://github.com/gitbckr/gitbacker/commit/bd363be3c1f55b776e24fc19daedce764dc6b813))
+
+
+### Features
+
+* separate DB_DIR and BACKUP_DIR, constrain local destinations ([65e5e18](https://github.com/gitbckr/gitbacker/commit/65e5e183787d9a53ae726268672150540d1e57b0))
+
 ## [0.14.1](https://github.com/gitbckr/gitbacker/compare/v0.14.0...v0.14.1) (2026-04-17)
 
 
