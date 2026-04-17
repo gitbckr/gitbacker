@@ -8,9 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 load_dotenv()
 
-from shared.enums import IdentityProvider, UserRole
-from shared.models import Base, User, UserIdentity
+from shared.enums import IdentityProvider, StorageType, UserRole
+from shared.models import Base, Destination, User, UserIdentity
 from app.auth import hash_password
+
+BACKUP_DIR = os.environ.get("BACKUP_DIR", "/data/backups")
 
 
 DATABASE_URL = os.environ.get(
@@ -53,6 +55,7 @@ async def main() -> None:
                 print(f"Admin user {ADMIN_EMAIL} already exists, password updated.")
             else:
                 print(f"Admin user {ADMIN_EMAIL} exists but has no local identity.")
+            await _seed_default_destination(session, existing.id)
             return
 
         user = User(email=ADMIN_EMAIL, name=ADMIN_NAME, role=UserRole.ADMIN)
@@ -69,7 +72,31 @@ async def main() -> None:
         await session.commit()
         print(f"Admin user created: {ADMIN_EMAIL}")
 
+        # Seed default local destination
+        admin_id = user.id
+        await _seed_default_destination(session, admin_id)
+
     await engine.dispose()
+
+
+async def _seed_default_destination(session: AsyncSession, admin_id) -> None:
+    """Create the default local backup destination if none exists."""
+    from sqlalchemy import func
+
+    count = await session.scalar(select(func.count()).select_from(Destination))
+    if count and count > 0:
+        return
+
+    dest = Destination(
+        alias="Local backups",
+        storage_type=StorageType.LOCAL,
+        path=BACKUP_DIR,
+        is_default=True,
+        created_by=admin_id,
+    )
+    session.add(dest)
+    await session.commit()
+    print(f"Default destination created: {BACKUP_DIR}")
 
 
 if __name__ == "__main__":
