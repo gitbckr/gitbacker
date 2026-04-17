@@ -1,3 +1,10 @@
+## [0.15.2](https://github.com/gitbckr/gitbacker/compare/v0.15.1...v0.15.2) (2026-04-17)
+
+
+### Bug Fixes
+
+* add openssh-client and gnupg to Docker images ([a926928](https://github.com/gitbckr/gitbacker/commit/a926928de0939b7b20bf614c212717149822ebca))
+
 ## [0.15.1](https://github.com/gitbckr/gitbacker/compare/v0.15.0...v0.15.1) (2026-04-17)
 
 
