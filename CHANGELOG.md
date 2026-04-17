@@ -1,3 +1,10 @@
+## [0.14.1](https://github.com/gitbckr/gitbacker/compare/v0.14.0...v0.14.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* remove explicit enum creation from migration — causes duplicate error on Postgres ([cf74ab4](https://github.com/gitbckr/gitbacker/commit/cf74ab4ba1ef533b93788657653c5a51d6875386))
+
 # [0.14.0](https://github.com/gitbckr/gitbacker/compare/v0.13.0...v0.14.0) (2026-04-17)
 
 
