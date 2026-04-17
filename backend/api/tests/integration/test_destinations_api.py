@@ -1,12 +1,25 @@
+import tempfile
+import os
+
+
 async def test_create_destination(client):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        response = await client.post(
+            "/api/destinations",
+            json={"alias": "New Dest", "path": tmpdir},
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["alias"] == "New Dest"
+        assert data["storage_type"] == "local"
+
+
+async def test_create_destination_rejects_missing_path(client):
     response = await client.post(
         "/api/destinations",
-        json={"alias": "New Dest", "path": "/tmp/new-dest"},
+        json={"alias": "Bad", "path": "/nonexistent/path"},
     )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["alias"] == "New Dest"
-    assert data["storage_type"] == "local"
+    assert response.status_code == 400
 
 
 async def test_list_destinations(client):
@@ -18,12 +31,21 @@ async def test_list_destinations(client):
 
 
 async def test_delete_destination(client):
-    # Create one first
-    create_resp = await client.post(
-        "/api/destinations",
-        json={"alias": "To Delete", "path": "/tmp/del"},
-    )
-    dest_id = create_resp.json()["id"]
+    with tempfile.TemporaryDirectory() as tmpdir:
+        create_resp = await client.post(
+            "/api/destinations",
+            json={"alias": "To Delete", "path": tmpdir},
+        )
+        dest_id = create_resp.json()["id"]
 
-    response = await client.delete(f"/api/destinations/{dest_id}")
-    assert response.status_code == 204
+        response = await client.delete(f"/api/destinations/{dest_id}")
+        assert response.status_code == 204
+
+
+async def test_cannot_delete_default_destination(client):
+    # The default destination is seeded in conftest
+    response = await client.get("/api/destinations")
+    default = next(d for d in response.json() if d["is_default"])
+
+    response = await client.delete(f"/api/destinations/{default['id']}")
+    assert response.status_code == 400

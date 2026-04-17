@@ -5,13 +5,26 @@ from shared.enums import StorageType
 from shared.models import Destination
 from shared.schemas import DestinationCreate
 
+# All tests patch Path.is_dir so fake paths like /tmp/test pass validation,
+# and _get_available_bytes so disk checks don't run on test fixtures.
+_PATCHES = [
+    patch(
+        "app.services.destination_service._get_available_bytes",
+        new_callable=AsyncMock,
+        return_value=None,
+    ),
+    patch("app.services.destination_service.Path.is_dir", return_value=True),
+]
 
-@patch(
-    "app.services.destination_service._get_available_bytes",
-    new_callable=AsyncMock,
-    return_value=None,
-)
-async def test_create_destination(mock_avail, db_session, admin_user):
+
+def _apply(fn):
+    for p in reversed(_PATCHES):
+        fn = p(fn)
+    return fn
+
+
+@_apply
+async def test_create_destination(mock_is_dir, mock_avail, db_session, admin_user):
     body = DestinationCreate(alias="Test Dest", path="/tmp/test")
     result = await destination_service.create_destination(db_session, admin_user, body)
     assert result.alias == "Test Dest"
@@ -19,12 +32,8 @@ async def test_create_destination(mock_avail, db_session, admin_user):
     assert result.is_default is False
 
 
-@patch(
-    "app.services.destination_service._get_available_bytes",
-    new_callable=AsyncMock,
-    return_value=None,
-)
-async def test_create_default_clears_old_default(mock_avail, db_session, admin_user):
+@_apply
+async def test_create_default_clears_old_default(mock_is_dir, mock_avail, db_session, admin_user):
     body1 = DestinationCreate(
         alias="First", path="/tmp/first", is_default=True
     )
@@ -37,7 +46,6 @@ async def test_create_default_clears_old_default(mock_avail, db_session, admin_u
     second = await destination_service.create_destination(db_session, admin_user, body2)
     assert second.is_default is True
 
-    # Refresh the first destination to see the updated is_default
     await db_session.refresh(
         await db_session.get(Destination, first.id)
     )
@@ -45,12 +53,8 @@ async def test_create_default_clears_old_default(mock_avail, db_session, admin_u
     assert refreshed_first.is_default is False
 
 
-@patch(
-    "app.services.destination_service._get_available_bytes",
-    new_callable=AsyncMock,
-    return_value=None,
-)
-async def test_list_destinations(mock_avail, db_session, admin_user):
+@_apply
+async def test_list_destinations(mock_is_dir, mock_avail, db_session, admin_user):
     body = DestinationCreate(alias="Listed", path="/tmp/listed")
     await destination_service.create_destination(db_session, admin_user, body)
 
@@ -60,12 +64,8 @@ async def test_list_destinations(mock_avail, db_session, admin_user):
     assert "Listed" in aliases
 
 
-@patch(
-    "app.services.destination_service._get_available_bytes",
-    new_callable=AsyncMock,
-    return_value=None,
-)
-async def test_delete_destination(mock_avail, db_session, admin_user):
+@_apply
+async def test_delete_destination(mock_is_dir, mock_avail, db_session, admin_user):
     body = DestinationCreate(alias="ToDelete", path="/tmp/delete")
     created = await destination_service.create_destination(
         db_session, admin_user, body
