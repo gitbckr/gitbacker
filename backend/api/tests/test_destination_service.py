@@ -46,9 +46,7 @@ async def test_create_default_clears_old_default(mock_is_dir, mock_avail, db_ses
     second = await destination_service.create_destination(db_session, admin_user, body2)
     assert second.is_default is True
 
-    await db_session.refresh(
-        await db_session.get(Destination, first.id)
-    )
+    db_session.expire_all()
     refreshed_first = await db_session.get(Destination, first.id)
     assert refreshed_first.is_default is False
 

@@ -1,6 +1,7 @@
 import uuid
 
 from sqlalchemy import func, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.enums import JobStatus
@@ -29,9 +30,12 @@ async def create(db: AsyncSession, destination: Destination) -> Destination:
 
 
 async def clear_default(db: AsyncSession) -> None:
-    result = await db.execute(select(Destination).where(Destination.is_default.is_(True)))
-    for dest in result.scalars().all():
-        dest.is_default = False
+    await db.execute(
+        sa_update(Destination)
+        .where(Destination.is_default.is_(True))
+        .values(is_default=False)
+    )
+    await db.flush()
 
 
 async def update(db: AsyncSession, destination: Destination, fields: dict) -> Destination:
