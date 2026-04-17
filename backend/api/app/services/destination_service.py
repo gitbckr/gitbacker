@@ -52,6 +52,19 @@ async def _enrich_destinations(
 async def create_destination(
     db: AsyncSession, user: User, body: DestinationCreate
 ) -> DestinationRead:
+    if body.storage_type == StorageType.LOCAL:
+        path = Path(body.path)
+        if not path.is_absolute():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Local destination path must be absolute",
+            )
+        if not path.is_dir():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Path does not exist or is not a directory: {body.path}",
+            )
+
     if body.is_default:
         await destination_repo.clear_default(db)
 
@@ -90,6 +103,19 @@ async def update_destination(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Destination not found")
 
     update_data = body.model_dump(exclude_unset=True)
+
+    if destination.storage_type == StorageType.LOCAL and "path" in update_data:
+        path = Path(update_data["path"])
+        if not path.is_absolute():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Local destination path must be absolute",
+            )
+        if not path.is_dir():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Path does not exist or is not a directory: {update_data['path']}",
+            )
     if update_data.get("is_default"):
         await destination_repo.clear_default(db)
 
@@ -104,6 +130,12 @@ async def delete_destination(db: AsyncSession, dest_id: str) -> None:
     destination = await destination_repo.get_by_id(db, uuid.UUID(dest_id))
     if not destination:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Destination not found")
+
+    if destination.is_default:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete the default destination",
+        )
 
     await destination_repo.delete(db, destination)
     await db.commit()

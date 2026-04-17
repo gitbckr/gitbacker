@@ -75,7 +75,6 @@ export default function DestinationsPage() {
   const [open, setOpen] = useState(false);
   const [alias, setAlias] = useState("");
   const [path, setPath] = useState("");
-  const [isDefault, setIsDefault] = useState(false);
 
   const { data: destinations = [], isLoading, isError } = useQuery({
     queryKey: ["destinations"],
@@ -85,20 +84,15 @@ export default function DestinationsPage() {
 
   const createMutation = useMutation({
     mutationFn: () =>
-      createDestination(token!, {
-        alias,
-        path,
-        is_default: isDefault,
-      }),
+      createDestination(token!, { alias, path }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["destinations"] });
       setOpen(false);
       setAlias("");
       setPath("");
-      setIsDefault(false);
       toast.success("Destination created");
     },
-    onError: () => toast.error("Failed to create destination"),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const deleteMutation = useMutation({
@@ -107,7 +101,7 @@ export default function DestinationsPage() {
       queryClient.invalidateQueries({ queryKey: ["destinations"] });
       toast.success("Destination deleted");
     },
-    onError: () => toast.error("Failed to delete destination"),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const setDefaultMutation = useMutation({
@@ -117,13 +111,19 @@ export default function DestinationsPage() {
       queryClient.invalidateQueries({ queryKey: ["destinations"] });
       toast.success("Default destination updated");
     },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   return (
     <AppShell>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Destinations</h1>
+          <div>
+            <h1 className="text-2xl font-semibold">Destinations</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Storage locations for backup archives. Paths must exist on disk.
+            </p>
+          </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button>Add destination</Button>
@@ -145,7 +145,7 @@ export default function DestinationsPage() {
                     id="alias"
                     value={alias}
                     onChange={(e) => setAlias(e.target.value)}
-                    placeholder="e.g. Local Backups"
+                    placeholder="e.g. External SSD"
                     required
                   />
                 </div>
@@ -155,18 +155,13 @@ export default function DestinationsPage() {
                     id="path"
                     value={path}
                     onChange={(e) => setPath(e.target.value)}
-                    placeholder="/var/backups/git"
+                    placeholder="/data/backups"
                     required
                   />
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="is_default"
-                    checked={isDefault}
-                    onChange={(e) => setIsDefault(e.target.checked)}
-                  />
-                  <Label htmlFor="is_default">Set as default</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Absolute path to an existing directory. Must be accessible by the
+                    API and worker containers (mount it in docker-compose.yml).
+                  </p>
                 </div>
                 <Button
                   type="submit"
@@ -183,22 +178,24 @@ export default function DestinationsPage() {
         {isLoading ? (
           <p className="text-muted-foreground">Loading...</p>
         ) : isError ? (
-          <p className="text-sm text-red-500">Failed to load destinations. Please try again.</p>
+          <p className="text-sm text-red-500">
+            Failed to load destinations. Please try again.
+          </p>
         ) : destinations.length === 0 ? (
           <p className="text-muted-foreground">
-            No destinations yet. Add one to start backing up repos.
+            No destinations configured. Restart the API to provision the default
+            local destination.
           </p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Alias</TableHead>
-                <TableHead>Type</TableHead>
                 <TableHead>Path</TableHead>
                 <TableHead>Repos</TableHead>
                 <TableHead className="min-w-[200px]">Storage</TableHead>
-                <TableHead>Default</TableHead>
-                <TableHead className="w-[80px]">Actions</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-[80px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -209,9 +206,6 @@ export default function DestinationsPage() {
                       <HardDrive className="h-4 w-4 text-muted-foreground" />
                       {dest.alias}
                     </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{dest.storage_type}</Badge>
                   </TableCell>
                   <TableCell className="font-mono text-sm">
                     {dest.path}
@@ -242,18 +236,24 @@ export default function DestinationsPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive"
-                      onClick={() => {
-                        if (confirm(`Delete "${dest.alias}"? This cannot be undone.`)) {
-                          deleteMutation.mutate(dest.id);
-                        }
-                      }}
-                    >
-                      Delete
-                    </Button>
+                    {!dest.is_default && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `Delete "${dest.alias}"? Repos using this destination will need to be reassigned.`,
+                            )
+                          ) {
+                            deleteMutation.mutate(dest.id);
+                          }
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
