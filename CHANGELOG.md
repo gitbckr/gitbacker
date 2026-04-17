@@ -1,3 +1,10 @@
+## [0.16.1](https://github.com/gitbckr/gitbacker/compare/v0.16.0...v0.16.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* make alembic migrations idempotent ([128b5bf](https://github.com/gitbckr/gitbacker/commit/128b5bff69e2a4d62f8153c7073b5942148a564e))
+
 # [0.16.0](https://github.com/gitbckr/gitbacker/compare/v0.15.2...v0.16.0) (2026-04-17)
 
 
