@@ -312,7 +312,7 @@ export default function ReposPage() {
       const effectiveCron = useDefaultSchedule
         ? settings?.default_cron_expression ?? undefined
         : cronExpression || undefined;
-      const effectiveEncrypt = encrypt ?? settings?.default_encrypt ?? false;
+      const effectiveEncrypt = encryptionKeys.length > 0 && (encrypt ?? settings?.default_encrypt ?? false);
       return createRepositories(token!, {
         urls: urlList,
         destination_id: destinationId || undefined,
@@ -388,6 +388,12 @@ export default function ReposPage() {
                     rows={5}
                     required
                   />
+                  {urls.includes("git@") && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      SSH URLs (git@...) require a credential in Settings &gt;
+                      Git Credentials. For public repos, use HTTPS URLs instead.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="destination">Destination</Label>
@@ -442,13 +448,19 @@ export default function ReposPage() {
                     <Checkbox
                       id="encrypt"
                       checked={encrypt ?? settings?.default_encrypt ?? false}
+                      disabled={encryptionKeys.length === 0}
                       onCheckedChange={(checked) =>
                         setEncrypt(checked === true)
                       }
                     />
-                    <Label htmlFor="encrypt" className="text-sm font-normal">
+                    <Label htmlFor="encrypt" className={`text-sm font-normal ${encryptionKeys.length === 0 ? "text-muted-foreground" : ""}`}>
                       Encrypt backups
                     </Label>
+                    {encryptionKeys.length === 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        (add a key in Settings first)
+                      </span>
+                    )}
                   </div>
                   {(encrypt ?? settings?.default_encrypt ?? false) && encryptionKeys.length > 0 && (
                     <div className="space-y-2">

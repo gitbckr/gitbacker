@@ -345,6 +345,7 @@ class GitCredentialRead(BaseModel):
     credential_type: CredentialType
     host: str
     username: str
+    public_key: str | None = None
     created_by: uuid.UUID
     created_at: datetime
 

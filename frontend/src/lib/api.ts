@@ -468,6 +468,7 @@ export type GitCredential = {
   credential_type: "pat" | "ssh_key";
   host: string;
   username: string;
+  public_key: string | null;
   created_by: string;
   created_at: string;
 };

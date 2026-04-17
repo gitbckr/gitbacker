@@ -312,6 +312,7 @@ class GitCredential(Base):
         String(255), nullable=False, default="x-access-token"
     )
     credential_data: Mapped[str] = mapped_column(Text, nullable=False)
+    public_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )

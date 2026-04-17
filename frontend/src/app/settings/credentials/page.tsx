@@ -9,6 +9,7 @@ import {
   deleteGitCredential,
   listGitCredentials,
 } from "@/lib/api";
+import { Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -233,7 +234,7 @@ export default function CredentialsSettingsPage() {
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Host</TableHead>
-              <TableHead>Username</TableHead>
+              <TableHead>Username / Public Key</TableHead>
               <TableHead className="w-[60px]" />
             </TableRow>
           </TableHeader>
@@ -247,8 +248,31 @@ export default function CredentialsSettingsPage() {
                   </Badge>
                 </TableCell>
                 <TableCell className="font-mono text-sm">{c.host}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {c.credential_type === "pat" ? c.username : "--"}
+                <TableCell>
+                  {c.credential_type === "pat" ? (
+                    <span className="text-sm text-muted-foreground">
+                      {c.username}
+                    </span>
+                  ) : c.public_key ? (
+                    <div className="flex items-center gap-1.5">
+                      <code className="text-xs text-muted-foreground truncate max-w-[200px]">
+                        {c.public_key}
+                      </code>
+                      <button
+                        type="button"
+                        title="Copy public key"
+                        onClick={() => {
+                          navigator.clipboard.writeText(c.public_key!);
+                          toast.success("Public key copied");
+                        }}
+                        className="shrink-0 rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">--</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Button
