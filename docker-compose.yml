@@ -36,6 +36,7 @@ services:
 
   api:
     image: ghcr.io/gitbckr/gitbacker-api:${VERSION:-latest}
+    platform: linux/amd64
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,6 +57,7 @@ services:
 
   worker:
     image: ghcr.io/gitbckr/gitbacker-worker:${VERSION:-latest}
+    platform: linux/amd64
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,6 +72,7 @@ services:
 
   frontend:
     image: ghcr.io/gitbckr/gitbacker-frontend:${VERSION:-latest}
+    platform: linux/amd64
     depends_on:
       - api
     environment:
