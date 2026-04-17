@@ -1,3 +1,17 @@
+# [0.14.0](https://github.com/gitbckr/gitbacker/compare/v0.13.0...v0.14.0) (2026-04-17)
+
+
+### Bug Fixes
+
+* retry alembic migration on startup for Docker ordering resilience ([25d2ca9](https://github.com/gitbckr/gitbacker/commit/25d2ca93d7772a54126b0dc5e500712d1aaba1ad))
+* update destination tests for path validation ([572e155](https://github.com/gitbckr/gitbacker/commit/572e155a9730416a2abe301233a29ed5fc89c23e))
+
+
+### Features
+
+* bind-mount volumes and auto-seed default backup destination ([30713c9](https://github.com/gitbckr/gitbacker/commit/30713c98991721c514e2c8b9e7568f2751fa11f1))
+* restrict local destinations with path validation and default protection ([91fbabf](https://github.com/gitbckr/gitbacker/commit/91fbabf2275c7ebc1a3e32c8ca132fa4e11d7deb))
+
 # [0.13.0](https://github.com/gitbckr/gitbacker/compare/v0.12.0...v0.13.0) (2026-04-16)
 
 
