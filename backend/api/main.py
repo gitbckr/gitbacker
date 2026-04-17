@@ -23,21 +23,31 @@ def _read_version() -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Run alembic migrations on startup (subprocess to avoid async event loop conflict)
+    # Run alembic migrations on startup (subprocess to avoid async event loop conflict).
+    # Retries a few times to handle Docker startup ordering (API starts before Postgres).
+    import logging
     import subprocess
+    import time
     from pathlib import Path
 
-    result = subprocess.run(
-        ["alembic", "upgrade", "head"],
-        cwd=str(Path(__file__).resolve().parent),
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    if result.returncode != 0:
-        import logging
-        logging.getLogger(__name__).error("Alembic migration failed:\n%s", result.stderr)
-        raise RuntimeError(f"Database migration failed: {result.stderr.strip()}")
+    _log = logging.getLogger(__name__)
+    _cwd = str(Path(__file__).resolve().parent)
+
+    for attempt in range(1, 6):
+        result = subprocess.run(
+            ["alembic", "upgrade", "head"],
+            cwd=_cwd,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode == 0:
+            break
+        _log.warning("Migration attempt %d/5 failed, retrying in 3s...", attempt)
+        if attempt == 5:
+            _log.error("Alembic migration failed:\n%s", result.stderr)
+            raise RuntimeError(f"Database migration failed: {result.stderr.strip()}")
+        time.sleep(3)
 
     # Clean up stale jobs left in RUNNING/PENDING state from a previous crash.
     # These will never complete — mark them as failed so the UI doesn't show
