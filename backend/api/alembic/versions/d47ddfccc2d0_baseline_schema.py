@@ -35,9 +35,13 @@ repopermission = sa.Enum("VIEW", "MANAGE", name="repopermission")
 
 
 def upgrade() -> None:
-    # Enums are created automatically by op.create_table when it encounters
-    # Enum columns. No explicit .create() needed — doing both causes
-    # DuplicateObjectError on Postgres.
+    # Skip if tables already exist (DB was set up by create_all before alembic).
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users')"
+    ))
+    if result.scalar():
+        return
 
     # --- users ---
     op.create_table(

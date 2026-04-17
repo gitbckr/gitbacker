@@ -19,7 +19,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("git_credentials", sa.Column("public_key", sa.Text(), nullable=True))
+    op.execute("""
+        ALTER TABLE git_credentials
+        ADD COLUMN IF NOT EXISTS public_key TEXT
+    """)
 
 
 def downgrade() -> None:
