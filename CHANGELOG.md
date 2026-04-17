@@ -1,3 +1,10 @@
+# [0.16.0](https://github.com/gitbckr/gitbacker/compare/v0.15.2...v0.16.0) (2026-04-17)
+
+
+### Features
+
+* derive and display SSH public key, warn on git@ URLs, block encrypt without keys ([ec3f4dc](https://github.com/gitbckr/gitbacker/commit/ec3f4dc13e7dd197ed06b79eee9e1622e1712609))
+
 ## [0.15.2](https://github.com/gitbckr/gitbacker/compare/v0.15.1...v0.15.2) (2026-04-17)
 
 
