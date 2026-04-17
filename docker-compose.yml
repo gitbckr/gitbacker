@@ -7,6 +7,15 @@
 # Pin a specific release:
 #   VERSION=1.2.3 docker compose up -d
 
+networks:
+  # Backend: Postgres + Redis + the services that access them.
+  # Not exposed to other compose projects.
+  backend:
+    driver: bridge
+  # Frontend-facing: only api and frontend need to talk.
+  web:
+    driver: bridge
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -22,6 +31,8 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - backend
 
   redis:
     image: redis:7-alpine
@@ -33,6 +44,8 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - backend
 
   api:
     image: ghcr.io/gitbckr/gitbacker-api:${VERSION:-latest}
@@ -54,6 +67,9 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     restart: unless-stopped
+    networks:
+      - backend
+      - web
 
   worker:
     image: ghcr.io/gitbckr/gitbacker-worker:${VERSION:-latest}
@@ -69,6 +85,8 @@ services:
     volumes:
       - ${BACKUP_DIR:-./data/backups}:/data/backups
     restart: unless-stopped
+    networks:
+      - backend
 
   frontend:
     image: ghcr.io/gitbckr/gitbacker-frontend:${VERSION:-latest}
@@ -80,3 +98,5 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     restart: unless-stopped
+    networks:
+      - web
