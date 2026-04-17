@@ -1,3 +1,10 @@
+# [0.17.0](https://github.com/gitbckr/gitbacker/compare/v0.16.2...v0.17.0) (2026-04-17)
+
+
+### Features
+
+* split docker-compose into backend and web networks ([eb586c2](https://github.com/gitbckr/gitbacker/commit/eb586c2d649aaead73349188cb275950c0dba5a6))
+
 ## [0.16.2](https://github.com/gitbckr/gitbacker/compare/v0.16.1...v0.16.2) (2026-04-17)
 
 
