@@ -1,3 +1,10 @@
+## [0.15.1](https://github.com/gitbckr/gitbacker/compare/v0.15.0...v0.15.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* hardcode Postgres/Redis data paths, only BACKUP_DIR is configurable ([8b68b2a](https://github.com/gitbckr/gitbacker/commit/8b68b2af5e91c70dbf2c6b83bcd12474be005a34))
+
 # [0.15.0](https://github.com/gitbckr/gitbacker/compare/v0.14.1...v0.15.0) (2026-04-17)
 
 
