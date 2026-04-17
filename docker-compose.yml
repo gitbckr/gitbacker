@@ -15,7 +15,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gitbacker}
       POSTGRES_DB: ${POSTGRES_DB:-gitbacker}
     volumes:
-      - ${DATA_DIR:-./data}/postgres:/var/lib/postgresql/data
+      - ${DB_DIR:-./data/postgres}:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gitbacker}"]
       interval: 5s
@@ -26,7 +26,7 @@ services:
   redis:
     image: redis:7-alpine
     volumes:
-      - ${DATA_DIR:-./data}/redis:/data
+      - ${DB_DIR:-./data/redis}:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -49,7 +49,7 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       ENVIRONMENT: production
     volumes:
-      - ${DATA_DIR:-./data}/backups:/data/backups
+      - ${BACKUP_DIR:-./data/backups}:/data/backups
     ports:
       - "${API_PORT:-8000}:8000"
     restart: unless-stopped
@@ -65,7 +65,7 @@ services:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-gitbacker}:${POSTGRES_PASSWORD:-gitbacker}@postgres:5432/${POSTGRES_DB:-gitbacker}
       REDIS_URL: redis://redis:6379/0
     volumes:
-      - ${DATA_DIR:-./data}/backups:/data/backups
+      - ${BACKUP_DIR:-./data/backups}:/data/backups
     restart: unless-stopped
 
   frontend:

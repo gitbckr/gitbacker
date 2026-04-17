@@ -1,3 +1,5 @@
+import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest_asyncio
@@ -29,6 +31,7 @@ async def client(engine, db_session, admin_user, default_destination):
             new_callable=AsyncMock,
             return_value=None,
         ),
+        patch("app.services.destination_service.BACKUP_ROOT", Path(tempfile.gettempdir())),
     ):
         async with AsyncClient(
             transport=ASGITransport(app=fastapi_app), base_url="http://test"
@@ -50,10 +53,13 @@ async def unauth_client(engine, db_session, admin_user):
 
     fastapi_app.dependency_overrides[get_db] = override_get_db
 
-    with patch(
-        "app.services.destination_service._get_available_bytes",
-        new_callable=AsyncMock,
-        return_value=None,
+    with (
+        patch(
+            "app.services.destination_service._get_available_bytes",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch("app.services.destination_service.BACKUP_ROOT", Path(tempfile.gettempdir())),
     ):
         async with AsyncClient(
             transport=ASGITransport(app=fastapi_app), base_url="http://test"

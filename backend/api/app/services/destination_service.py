@@ -1,4 +1,5 @@
 import asyncio
+import os
 import shutil
 import uuid
 from pathlib import Path
@@ -49,21 +50,21 @@ async def _enrich_destinations(
     return result
 
 
+BACKUP_ROOT = Path(os.environ.get("BACKUP_DIR", "/data/backups"))
+
+
 async def create_destination(
     db: AsyncSession, user: User, body: DestinationCreate
 ) -> DestinationRead:
     if body.storage_type == StorageType.LOCAL:
-        path = Path(body.path)
-        if not path.is_absolute():
+        path = Path(body.path).resolve()
+        if not path.is_relative_to(BACKUP_ROOT.resolve()):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Local destination path must be absolute",
+                detail=f"Local path must be under {BACKUP_ROOT}",
             )
-        if not path.is_dir():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Path does not exist or is not a directory: {body.path}",
-            )
+        # Auto-create the subdirectory
+        path.mkdir(parents=True, exist_ok=True)
 
     if body.is_default:
         await destination_repo.clear_default(db)
@@ -105,17 +106,13 @@ async def update_destination(
     update_data = body.model_dump(exclude_unset=True)
 
     if destination.storage_type == StorageType.LOCAL and "path" in update_data:
-        path = Path(update_data["path"])
-        if not path.is_absolute():
+        path = Path(update_data["path"]).resolve()
+        if not path.is_relative_to(BACKUP_ROOT.resolve()):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Local destination path must be absolute",
+                detail=f"Local path must be under {BACKUP_ROOT}",
             )
-        if not path.is_dir():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Path does not exist or is not a directory: {update_data['path']}",
-            )
+        path.mkdir(parents=True, exist_ok=True)
     if update_data.get("is_default"):
         await destination_repo.clear_default(db)
 

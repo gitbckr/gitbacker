@@ -82,9 +82,12 @@ export default function DestinationsPage() {
     enabled: !!token,
   });
 
+  const BACKUP_ROOT = "/data/backups";
+  const fullPath = path ? `${BACKUP_ROOT}/${path}` : BACKUP_ROOT;
+
   const createMutation = useMutation({
     mutationFn: () =>
-      createDestination(token!, { alias, path }),
+      createDestination(token!, { alias, path: fullPath }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["destinations"] });
       setOpen(false);
@@ -150,17 +153,22 @@ export default function DestinationsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="path">Path</Label>
-                  <Input
-                    id="path"
-                    value={path}
-                    onChange={(e) => setPath(e.target.value)}
-                    placeholder="/data/backups"
-                    required
-                  />
+                  <Label htmlFor="path">Subdirectory</Label>
+                  <div className="flex items-center rounded-md border border-input">
+                    <span className="shrink-0 select-none border-r bg-muted px-3 py-2 text-xs font-mono text-muted-foreground">
+                      /data/backups/
+                    </span>
+                    <input
+                      id="path"
+                      value={path}
+                      onChange={(e) => setPath(e.target.value.replace(/^\/+/, ""))}
+                      placeholder="e.g. critical"
+                      className="flex-1 bg-transparent px-3 py-2 text-sm font-mono outline-none placeholder:text-muted-foreground"
+                    />
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Absolute path to an existing directory. Must be accessible by the
-                    API and worker containers (mount it in docker-compose.yml).
+                    Optional subfolder within the backup volume. Leave empty to use
+                    the root. The directory will be created automatically.
                   </p>
                 </div>
                 <Button
