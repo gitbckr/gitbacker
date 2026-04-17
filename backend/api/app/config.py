@@ -6,9 +6,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DATABASE_URL: str = os.environ.get(
-    "DATABASE_URL", "postgresql+asyncpg://gitbacker:gitbacker@localhost:5555/gitbacker"
+    "DATABASE_URL", "postgresql+asyncpg://gitbacker:gitbacker@localhost:5432/gitbacker"
 )
-REDIS_URL: str = os.environ.get("REDIS_URL", "redis://localhost:6666/0")
+REDIS_URL: str = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 _JWT_DEFAULT = "changeme-to-a-random-secret"
 JWT_SECRET: str = os.environ.get("JWT_SECRET", _JWT_DEFAULT)
 if JWT_SECRET == _JWT_DEFAULT:

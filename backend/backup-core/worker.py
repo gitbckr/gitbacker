@@ -15,7 +15,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6666/0")
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
 app = Celery("backup_core", broker=REDIS_URL)
 app.config_from_object({

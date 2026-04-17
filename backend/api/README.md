@@ -6,8 +6,8 @@ FastAPI service — handles auth, validation, CRUD, and dispatches Celery tasks 
 
 - Python 3.12+
 - uv
-- Postgres running on port 5555
-- Redis running on port 6666
+- Postgres running on port 5432
+- Redis running on port 6379
 
 ## Setup
 

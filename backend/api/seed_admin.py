@@ -16,7 +16,7 @@ BACKUP_DIR = os.environ.get("BACKUP_DIR", "/data/backups")
 
 
 DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql+asyncpg://gitbacker:gitbacker@localhost:5555/gitbacker"
+    "DATABASE_URL", "postgresql+asyncpg://gitbacker:gitbacker@localhost:5432/gitbacker"
 )
 
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@gitbacker.local")

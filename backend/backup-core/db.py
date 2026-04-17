@@ -9,7 +9,7 @@ load_dotenv()
 
 # backup-core uses sync SQLAlchemy (Celery tasks are sync)
 DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql+asyncpg://gitbacker:gitbacker@localhost:5555/gitbacker"
+    "DATABASE_URL", "postgresql+asyncpg://gitbacker:gitbacker@localhost:5432/gitbacker"
 )
 
 # Replace async driver with sync driver for Celery workers

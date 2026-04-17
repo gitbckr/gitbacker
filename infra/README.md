@@ -15,8 +15,8 @@ docker compose -f docker-compose.dev.yml up -d
 
 This starts:
 
-- **Postgres** on port `5555`
-- **Redis** on port `6666`
+- **Postgres** on port `5432`
+- **Redis** on port `6379`
 
 ## Stop
 

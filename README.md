@@ -86,7 +86,7 @@ cp .env.example .env
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-PostgreSQL runs on port **5555**, Redis on **6666**.
+PostgreSQL runs on port **5432**, Redis on **6379**.
 
 ### Run services
 
