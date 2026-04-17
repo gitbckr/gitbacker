@@ -15,15 +15,26 @@ logger = logging.getLogger(__name__)
 
 
 def _derive_public_key(private_key_pem: str) -> str | None:
-    """Derive the OpenSSH public key from a private key. Returns None on failure."""
+    """Derive the OpenSSH public key from a private key. Returns None on failure.
+
+    Handles both OpenSSH format (-----BEGIN OPENSSH PRIVATE KEY-----)
+    and PEM/PKCS8 format (-----BEGIN RSA PRIVATE KEY----- etc).
+    """
     try:
         from cryptography.hazmat.primitives.serialization import (
             Encoding,
             PublicFormat,
+            load_pem_private_key,
             load_ssh_private_key,
         )
 
-        private_key = load_ssh_private_key(private_key_pem.encode(), password=None)
+        key_bytes = private_key_pem.encode()
+
+        if b"OPENSSH PRIVATE KEY" in key_bytes:
+            private_key = load_ssh_private_key(key_bytes, password=None)
+        else:
+            private_key = load_pem_private_key(key_bytes, password=None)
+
         return private_key.public_key().public_bytes(
             Encoding.OpenSSH, PublicFormat.OpenSSH
         ).decode()
