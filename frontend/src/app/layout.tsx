@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Gitbacker",
-  description: "Self-hosted git repository backup tool - Gitbacker",
+  description: "Self-hosted git repository backup tool — Gitbacker",
   icons: {
     icon: "/gitbacker-logo-filled.svg",
   },

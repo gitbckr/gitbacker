@@ -128,6 +128,7 @@ export default function CredentialsSettingsPage() {
                   placeholder="e.g. GitHub PAT"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  maxLength={64}
                   required
                 />
               </div>
@@ -156,12 +157,22 @@ export default function CredentialsSettingsPage() {
                   id="cred-host"
                   placeholder="github.com"
                   value={host}
-                  onChange={(e) => setHost(e.target.value)}
+                  onChange={(e) =>
+                    setHost(
+                      e.target.value
+                        .replace(/^[a-z]+:\/\//i, "")
+                        .replace(/\/.*$/, "")
+                        .trim(),
+                    )
+                  }
+                  maxLength={253}
+                  pattern="[A-Za-z0-9.\-:]+"
+                  title="Hostname only — no scheme, path, or spaces"
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  The hostname to match against repository URLs. One credential
-                  per host.
+                  Hostname only (e.g. <code>github.com</code>). No scheme or
+                  path. One credential per host.
                 </p>
               </div>
               {credentialType === "pat" && (

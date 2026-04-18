@@ -166,6 +166,7 @@ export default function UsersSettingsPage() {
                   id="name"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
+                  maxLength={64}
                   required
                 />
               </div>
@@ -331,6 +332,7 @@ export default function UsersSettingsPage() {
                 id="edit-name"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
+                maxLength={64}
                 required
               />
             </div>

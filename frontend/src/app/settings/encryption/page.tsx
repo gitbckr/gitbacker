@@ -305,6 +305,7 @@ export default function EncryptionSettingsPage() {
                 placeholder="e.g. Production backup key"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                maxLength={64}
                 required
               />
             </div>

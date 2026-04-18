@@ -100,10 +100,15 @@ def _credential_env(
         yield env, parsed._replace(netloc=netloc).geturl()
         return
 
-    # SSH_KEY — write to a temp file with strict permissions
+    # SSH_KEY — write to a temp file with strict permissions.
+    # libcrypto is strict about key file format: LF line endings only and
+    # a trailing newline. Otherwise it fails with "error in libcrypto".
     fd, keypath = tempfile.mkstemp(suffix=".key")
     try:
-        os.write(fd, secret.encode())
+        normalized = secret.replace("\r\n", "\n").replace("\r", "\n")
+        if not normalized.endswith("\n"):
+            normalized += "\n"
+        os.write(fd, normalized.encode())
         os.close(fd)
         os.chmod(keypath, 0o600)
         env["GIT_SSH_COMMAND"] = (

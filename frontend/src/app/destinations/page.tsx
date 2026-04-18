@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { HardDrive, GitBranch } from "lucide-react";
+import { HardDrive, GitBranch, Trash2, Info } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { formatBytes } from "@/lib/utils";
 import { AppShell } from "@/components/app-shell";
@@ -11,6 +11,7 @@ import {
   createDestination,
   deleteDestination,
   listDestinations,
+  listRepositories,
   updateDestination,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,7 @@ function StorageBar({
 }) {
   if (available === null || available === 0) {
     return (
-      <span className="text-sm text-muted-foreground">
+      <span className="text-[12.5px] text-muted-foreground tabular-nums">
         {formatBytes(used)} used
       </span>
     );
@@ -50,19 +51,35 @@ function StorageBar({
 
   const total = used + available;
   const pct = Math.min((used / total) * 100, 100);
-  const barColor =
-    pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-emerald-500";
+  const tone =
+    pct > 85 ? "var(--err)" : pct > 70 ? "var(--warn)" : "var(--mint)";
+  const pctColor =
+    pct > 85
+      ? "var(--err)"
+      : pct > 70
+        ? "var(--warn)"
+        : "var(--muted-foreground)";
 
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>{formatBytes(used)} used</span>
+    <div>
+      <div className="mb-1.5 flex justify-between text-[11.5px] tabular-nums text-muted-foreground">
+        <span>
+          <span className="font-medium text-foreground">
+            {formatBytes(used)}
+          </span>{" "}
+          used ·{" "}
+          <span style={{ color: pctColor }}>{pct.toFixed(1)}%</span>
+        </span>
         <span>{formatBytes(available)} free</span>
       </div>
-      <div className="h-2 w-full rounded-full bg-muted">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-foreground/[0.06]">
         <div
-          className={`h-2 rounded-full ${barColor} transition-all`}
-          style={{ width: `${pct}%` }}
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${pct}%`,
+            background: tone,
+            boxShadow: `0 0 10px -2px ${tone}`,
+          }}
         />
       </div>
     </div>
@@ -81,6 +98,20 @@ export default function DestinationsPage() {
     queryFn: () => listDestinations(token!),
     enabled: !!token,
   });
+
+  const { data: repos = [] } = useQuery({
+    queryKey: ["repositories"],
+    queryFn: () => listRepositories(token!),
+    enabled: !!token,
+  });
+
+  const totalUsed = destinations.reduce((s, d) => s + d.used_bytes, 0);
+  const totalCapacity = destinations.reduce(
+    (s, d) => s + d.used_bytes + (d.available_bytes ?? 0),
+    0,
+  );
+  const usedPct =
+    totalCapacity > 0 ? (totalUsed / totalCapacity) * 100 : 0;
 
   const BACKUP_ROOT = "/data/backups";
   const fullPath = path ? `${BACKUP_ROOT}/${path}` : BACKUP_ROOT;
@@ -120,11 +151,17 @@ export default function DestinationsPage() {
   return (
     <AppShell>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Destinations</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Storage locations for backup archives. Paths must exist on disk.
+            <p className="text-[11.5px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+              Storage
+            </p>
+            <h1 className="mt-1 font-serif text-[30px] leading-[1.05] tracking-[-0.01em]">
+              Destinations
+            </h1>
+            <p className="mt-1.5 max-w-[560px] text-[13px] text-muted-foreground">
+              Where archives land. Paths must exist on disk before saving —
+              the directory will be created if missing.
             </p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -149,6 +186,7 @@ export default function DestinationsPage() {
                     value={alias}
                     onChange={(e) => setAlias(e.target.value)}
                     placeholder="e.g. External SSD"
+                    maxLength={64}
                     required
                   />
                 </div>
@@ -161,7 +199,14 @@ export default function DestinationsPage() {
                     <input
                       id="path"
                       value={path}
-                      onChange={(e) => setPath(e.target.value.replace(/^\/+/, ""))}
+                      onChange={(e) =>
+                        setPath(
+                          e.target.value
+                            .replace(/^\/+/, "")
+                            .replace(/[^\w./\-]/g, ""),
+                        )
+                      }
+                      maxLength={128}
                       placeholder="e.g. critical"
                       className="flex-1 bg-transparent px-3 py-2 text-sm font-mono outline-none placeholder:text-muted-foreground"
                     />
@@ -183,6 +228,52 @@ export default function DestinationsPage() {
           </Dialog>
         </div>
 
+        {destinations.length > 0 && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-foreground/[0.07] bg-[var(--bg-1)] px-4 py-3">
+              <div className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted-foreground">
+                Total capacity
+              </div>
+              <div className="mt-1 flex items-baseline gap-1.5">
+                <span className="font-serif text-[26px] leading-none tabular-nums">
+                  {formatBytes(totalCapacity).replace(/ .*/, "")}
+                </span>
+                <span className="text-[12px] text-muted-foreground">
+                  {formatBytes(totalCapacity).replace(/^[\d.]+ /, "")}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-xl border border-foreground/[0.07] bg-[var(--bg-1)] px-4 py-3">
+              <div className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted-foreground">
+                Used
+              </div>
+              <div className="mt-1 flex items-baseline gap-1.5">
+                <span className="font-serif text-[26px] leading-none tabular-nums">
+                  {formatBytes(totalUsed).replace(/ .*/, "")}
+                </span>
+                <span className="text-[12px] text-muted-foreground">
+                  {formatBytes(totalUsed).replace(/^[\d.]+ /, "")}
+                  {totalCapacity > 0 && ` · ${usedPct.toFixed(1)}%`}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-xl border border-foreground/[0.07] bg-[var(--bg-1)] px-4 py-3">
+              <div className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted-foreground">
+                Repos placed
+              </div>
+              <div className="mt-1 flex items-baseline gap-1.5">
+                <span className="font-serif text-[26px] leading-none tabular-nums">
+                  {repos.length}
+                </span>
+                <span className="text-[12px] text-muted-foreground">
+                  across {destinations.length} destination
+                  {destinations.length === 1 ? "" : "s"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {isLoading ? (
           <p className="text-muted-foreground">Loading...</p>
         ) : isError ? (
@@ -195,78 +286,147 @@ export default function DestinationsPage() {
             local destination.
           </p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Alias</TableHead>
-                <TableHead>Path</TableHead>
-                <TableHead>Repos</TableHead>
-                <TableHead className="min-w-[200px]">Storage</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[80px]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {destinations.map((dest) => (
-                <TableRow key={dest.id}>
-                  <TableCell className="font-medium">
-                    <span className="flex items-center gap-2">
-                      <HardDrive className="h-4 w-4 text-muted-foreground" />
-                      {dest.alias}
-                    </span>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {dest.path}
-                  </TableCell>
-                  <TableCell>
-                    <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <GitBranch className="h-3.5 w-3.5" />
-                      {dest.repo_count}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <StorageBar
-                      used={dest.used_bytes}
-                      available={dest.available_bytes}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {dest.is_default ? (
-                      <Badge>Default</Badge>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDefaultMutation.mutate(dest.id)}
-                      >
-                        Set default
-                      </Button>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {!dest.is_default && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive"
-                        onClick={() => {
-                          if (
-                            confirm(
-                              `Delete "${dest.alias}"? Repos using this destination will need to be reassigned.`,
-                            )
-                          ) {
-                            deleteMutation.mutate(dest.id);
-                          }
-                        }}
-                      >
-                        Delete
-                      </Button>
-                    )}
-                  </TableCell>
+          <div className="overflow-hidden rounded-[14px] border border-foreground/[0.08] bg-[var(--bg-1)]">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-foreground/[0.06] hover:bg-transparent">
+                  <TableHead className="font-mono text-[10.5px] uppercase tracking-[0.1em]">
+                    Alias
+                  </TableHead>
+                  <TableHead className="font-mono text-[10.5px] uppercase tracking-[0.1em]">
+                    Path
+                  </TableHead>
+                  <TableHead className="text-right font-mono text-[10.5px] uppercase tracking-[0.1em]">
+                    Repos
+                  </TableHead>
+                  <TableHead className="min-w-[280px] font-mono text-[10.5px] uppercase tracking-[0.1em]">
+                    Capacity
+                  </TableHead>
+                  <TableHead className="font-mono text-[10.5px] uppercase tracking-[0.1em]">
+                    Status
+                  </TableHead>
+                  <TableHead className="w-[140px]" />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {destinations.map((dest) => {
+                  const cap =
+                    dest.available_bytes != null
+                      ? dest.used_bytes + dest.available_bytes
+                      : null;
+                  const pct =
+                    cap != null && cap > 0
+                      ? (dest.used_bytes / cap) * 100
+                      : null;
+                  const health =
+                    pct != null && pct > 85
+                      ? { color: "var(--err)", label: "Low space" }
+                      : pct != null && pct > 70
+                        ? { color: "var(--warn)", label: "High usage" }
+                        : { color: "var(--mint)", label: "Mounted" };
+                  return (
+                    <TableRow
+                      key={dest.id}
+                      className="border-foreground/[0.06]"
+                    >
+                      <TableCell className="min-w-[200px]">
+                        <div className="flex items-center gap-2.5">
+                          <span className="grid size-8 shrink-0 place-items-center rounded-[9px] border border-foreground/[0.06] bg-foreground/[0.05] text-muted-foreground">
+                            <HardDrive className="h-3.5 w-3.5" />
+                          </span>
+                          <div className="min-w-0">
+                            <div className="whitespace-nowrap text-[13.5px] font-medium">
+                              {dest.alias}
+                            </div>
+                            <div className="mt-px whitespace-nowrap text-[11px] text-muted-foreground">
+                              Local volume
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-[12.5px] text-foreground/90">
+                        {dest.path}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="inline-flex items-center gap-1.5 text-[13px] tabular-nums text-muted-foreground">
+                          <GitBranch className="h-3 w-3" />
+                          <span className="font-medium text-foreground">
+                            {dest.repo_count}
+                          </span>
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <StorageBar
+                          used={dest.used_bytes}
+                          available={dest.available_bytes}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="size-2 rounded-full"
+                            style={{
+                              background: health.color,
+                              boxShadow: `0 0 0 3px color-mix(in oklch, ${health.color} 18%, transparent)`,
+                            }}
+                          />
+                          <span className="text-[12.5px]">
+                            {health.label}
+                          </span>
+                        </div>
+                        {dest.is_default && (
+                          <Badge className="mt-1.5 h-auto gap-1 border-[color-mix(in_oklch,var(--mint)_30%,transparent)] bg-[color-mix(in_oklch,var(--mint)_12%,transparent)] px-1.5 py-0.5 text-[10.5px] font-medium text-[var(--mint)]">
+                            ★ Default
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {!dest.is_default && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setDefaultMutation.mutate(dest.id)
+                            }
+                          >
+                            Set default
+                          </Button>
+                        )}
+                        {!dest.is_default && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="ml-1 rounded-[8px] text-muted-foreground hover:text-destructive"
+                            title="Delete"
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `Delete "${dest.alias}"? Repos using this destination will need to be reassigned.`,
+                                )
+                              ) {
+                                deleteMutation.mutate(dest.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {destinations.length > 0 && !isLoading && (
+          <p className="flex items-start gap-2 text-[12px] text-muted-foreground">
+            <Info className="mt-0.5 size-3.5 shrink-0" />
+            The default destination is used when a repo is added without an
+            explicit choice. Removing a destination requires reassigning any
+            repos placed there.
+          </p>
         )}
       </div>
     </AppShell>
