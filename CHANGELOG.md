@@ -1,3 +1,10 @@
+## [0.17.2](https://github.com/gitbckr/gitbacker/compare/v0.17.1...v0.17.2) (2026-04-18)
+
+
+### Bug Fixes
+
+* jwt decryption issues ([a44819a](https://github.com/gitbckr/gitbacker/commit/a44819acda8cec3f26d6136aa5afc4bba42678fb))
+
 ## [0.17.1](https://github.com/gitbckr/gitbacker/compare/v0.17.0...v0.17.1) (2026-04-18)
 
 
