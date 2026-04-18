@@ -82,6 +82,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-gitbacker}:${POSTGRES_PASSWORD:-gitbacker}@postgres:5432/${POSTGRES_DB:-gitbacker}
       REDIS_URL: redis://redis:6379/0
+      # Must match the api service — same secret derives the Fernet key used
+      # to encrypt/decrypt credentials in the DB.
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
     volumes:
       - ${BACKUP_DIR:-./data/backups}:/data/backups
     restart: unless-stopped

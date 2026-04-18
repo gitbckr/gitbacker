@@ -88,7 +88,11 @@ def _credential_env(
         yield env, url
         return
 
-    secret = decrypt_field(credential.credential_data, _APP_SECRET) if _APP_SECRET else credential.credential_data
+    if not _APP_SECRET:
+        raise RuntimeError(
+            "JWT_SECRET environment variable is required to decrypt credentials"
+        )
+    secret = decrypt_field(credential.credential_data, _APP_SECRET)
 
     if credential.credential_type == CredentialType.PAT:
         parsed = urlparse(url)
