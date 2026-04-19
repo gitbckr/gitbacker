@@ -16,6 +16,7 @@ type AuthState = {
   isLoading: boolean;
   login: (email: string, password: string, remember?: boolean) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -108,8 +109,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    if (!token) return;
+    const me = await getMe(token);
+    setUser(me);
+  }, [token]);
+
   return (
-    <AuthContext.Provider value={{ token, user, isLoading, login, logout }}>
+    <AuthContext.Provider
+      value={{ token, user, isLoading, login, logout, refreshUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

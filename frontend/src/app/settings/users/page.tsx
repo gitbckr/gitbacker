@@ -91,11 +91,13 @@ export default function UsersSettingsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: () =>
-      updateUser(token!, editUser!.id, {
-        name: editName,
-        role: editRole,
-      }),
+    mutationFn: () => {
+      const payload: { name: string; role?: string } = { name: editName };
+      // Never send role when editing self; the backend refuses self role
+      // changes anyway, but omitting it avoids even trying.
+      if (editUser!.id !== user?.id) payload.role = editRole;
+      return updateUser(token!, editUser!.id, payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setEditUser(null);
@@ -338,7 +340,11 @@ export default function UsersSettingsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role</Label>
-              <Select value={editRole} onValueChange={setEditRole}>
+              <Select
+                value={editRole}
+                onValueChange={setEditRole}
+                disabled={editUser?.id === user?.id}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -347,6 +353,11 @@ export default function UsersSettingsPage() {
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
+              {editUser?.id === user?.id && (
+                <p className="text-xs text-muted-foreground">
+                  You can&apos;t change your own role. Ask another admin.
+                </p>
+              )}
             </div>
             <Button
               type="submit"

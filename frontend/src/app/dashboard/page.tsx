@@ -501,29 +501,22 @@ export default function DashboardPage() {
       sub:
         totalRepos === 0 ? (
           "—"
-        ) : encryptedPct < 50 ? (
-          <span style={{ color: "var(--warn)" }}>
-            {encryptedCount} of {totalRepos} repos
-          </span>
         ) : (
           <span>
             {encryptedCount} of {totalRepos} repos
           </span>
         ),
       icon: HardDriveIcon,
-      tone:
-        totalRepos === 0
-          ? "neutral"
-          : encryptedCount === 0
-            ? "err"
-            : encryptedPct < 50
-              ? "warn"
-              : "ok",
+      // Encrypted is a feature label, not a health metric — always mint,
+      // regardless of current coverage. Sub-text already conveys coverage.
+      tone: "ok",
       href: "/settings/encryption",
     },
   ];
 
-  const displayName = user?.email ? user.email.split("@")[0] : undefined;
+  const displayName =
+    user?.name?.trim() ||
+    (user?.email ? user.email.split("@")[0] : undefined);
 
   return (
     <AppShell>

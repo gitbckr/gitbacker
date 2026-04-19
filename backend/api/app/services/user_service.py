@@ -7,7 +7,7 @@ from app.auth import hash_password, verify_password
 from app.repositories import user_repo
 from shared.enums import IdentityProvider
 from shared.models import User, UserIdentity
-from shared.schemas import PasswordChange, UserCreate, UserUpdate
+from shared.schemas import PasswordChange, UserCreate, UserSelfUpdate, UserUpdate
 
 
 async def create_user(db: AsyncSession, body: UserCreate) -> User:
@@ -34,6 +34,16 @@ async def list_users(db: AsyncSession) -> list[User]:
     return await user_repo.list_all(db)
 
 
+async def update_me(
+    db: AsyncSession, user: User, body: UserSelfUpdate
+) -> User:
+    """Update the current user's own profile fields (name only)."""
+    await user_repo.update(db, user, body.model_dump(exclude_unset=True))
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
 async def update_user(
     db: AsyncSession, user_id: str, body: UserUpdate, current_user: User
 ) -> User:
@@ -43,7 +53,12 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot deactivate your own account",
             )
-        if body.role is not None and body.role != current_user.role:
+        # Compare by value to avoid enum-vs-string mismatch across the
+        # Pydantic/SQLAlchemy boundary.
+        if body.role is not None and (
+            getattr(body.role, "value", body.role)
+            != getattr(current_user.role, "value", current_user.role)
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot change your own role",

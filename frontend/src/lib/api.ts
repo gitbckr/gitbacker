@@ -120,6 +120,13 @@ export function changePassword(
   return request("/users/me/password", { method: "POST", body: data, token });
 }
 
+export function updateMe(
+  token: string,
+  data: { name?: string },
+): Promise<User> {
+  return request("/users/me", { method: "PATCH", body: data, token });
+}
+
 // --- Destinations ---
 
 export type Destination = {

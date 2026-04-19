@@ -241,7 +241,7 @@ export default function DestinationsPage() {
                 Total capacity
               </div>
               <div className="mt-1 flex items-baseline gap-1.5">
-                <span className="font-serif text-[26px] leading-none tabular-nums">
+                <span className="text-[26px] font-semibold leading-none tracking-[-0.025em] tabular-nums">
                   {formatBytes(totalCapacity).replace(/ .*/, "")}
                 </span>
                 <span className="text-[12px] text-muted-foreground">
@@ -254,7 +254,7 @@ export default function DestinationsPage() {
                 Used
               </div>
               <div className="mt-1 flex items-baseline gap-1.5">
-                <span className="font-serif text-[26px] leading-none tabular-nums">
+                <span className="text-[26px] font-semibold leading-none tracking-[-0.025em] tabular-nums">
                   {formatBytes(totalUsed).replace(/ .*/, "")}
                 </span>
                 <span className="text-[12px] text-muted-foreground">
@@ -268,7 +268,7 @@ export default function DestinationsPage() {
                 Repos placed
               </div>
               <div className="mt-1 flex items-baseline gap-1.5">
-                <span className="font-serif text-[26px] leading-none tabular-nums">
+                <span className="text-[26px] font-semibold leading-none tracking-[-0.025em] tabular-nums">
                   {repos.length}
                 </span>
                 <span className="text-[12px] text-muted-foreground">
