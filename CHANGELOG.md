@@ -1,3 +1,19 @@
+# [0.18.0](https://github.com/gitbckr/gitbacker/compare/v0.17.2...v0.18.0) (2026-04-19)
+
+
+### Bug Fixes
+
+* adding missing file ([f2d6231](https://github.com/gitbckr/gitbacker/commit/f2d62311814dd8331810c68104c913ef6d99c12c))
+* replace metadata favicon with app/icon.svg (tree-leaf shield) ([b5307cd](https://github.com/gitbckr/gitbacker/commit/b5307cd7c043ea30bcd9acb26efbf68c013bbdca))
+* ultrareview findings from redesign branch ([3bae993](https://github.com/gitbckr/gitbacker/commit/3bae993c82f1a0614afbed4cf9e652c48a62cce4))
+
+
+### Features
+
+* redesign ([b0c5717](https://github.com/gitbckr/gitbacker/commit/b0c57171243f93192a7a08602e25eb797b2495e6))
+* Redesign: dark-first UI, account self-edit, and backup reliability fixes ([a9bf94b](https://github.com/gitbckr/gitbacker/commit/a9bf94b052befa78e6e08f35ea6f38543dd3ac94))
+* users can edit their own name; harden self role-change ([9f01284](https://github.com/gitbckr/gitbacker/commit/9f0128478add87a290241cc275de24181f2e582c))
+
 ## [0.17.2](https://github.com/gitbckr/gitbacker/compare/v0.17.1...v0.17.2) (2026-04-18)
 
 
