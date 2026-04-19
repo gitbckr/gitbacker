@@ -77,6 +77,12 @@ class UserUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class UserSelfUpdate(BaseModel):
+    """Fields a user may change on their own account. Excludes role / is_active."""
+
+    name: str | None = None
+
+
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str

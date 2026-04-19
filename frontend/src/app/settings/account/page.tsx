@@ -1,20 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
-import { changePassword } from "@/lib/api";
+import { changePassword, updateMe } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/password-input";
 
 export default function AccountSettingsPage() {
-  const { token, user } = useAuth();
+  const { token, user, refreshUser } = useAuth();
+  const [name, setName] = useState(user?.name ?? "");
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
+
+  useEffect(() => {
+    setName(user?.name ?? "");
+  }, [user?.name]);
+
+  const profileMutation = useMutation({
+    mutationFn: () => updateMe(token!, { name: name.trim() }),
+    onSuccess: async () => {
+      await refreshUser();
+      toast.success("Profile updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const nameDirty = name.trim() !== (user?.name ?? "") && name.trim() !== "";
 
   const passwordMutation = useMutation({
     mutationFn: () =>
@@ -46,13 +62,35 @@ export default function AccountSettingsPage() {
           <p className="text-sm">{user?.email}</p>
         </div>
         <div className="space-y-1">
-          <Label className="text-muted-foreground">Name</Label>
-          <p className="text-sm">{user?.name}</p>
-        </div>
-        <div className="space-y-1">
           <Label className="text-muted-foreground">Role</Label>
           <p className="text-sm capitalize">{user?.role}</p>
         </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!nameDirty) return;
+            profileMutation.mutate();
+          }}
+          className="space-y-2"
+        >
+          <Label htmlFor="profile-name">Name</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="profile-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={64}
+              required
+            />
+            <Button
+              type="submit"
+              size="sm"
+              disabled={!nameDirty || profileMutation.isPending}
+            >
+              {profileMutation.isPending ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </form>
       </div>
 
       <div className="max-w-md space-y-4">

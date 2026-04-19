@@ -4,11 +4,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ----------------------------------------------------------------------------
+ *  Gitbacker design tokens — ported from the marketing site.
+ *  Dark is the default (matches landing). `.dark` class is already applied
+ *  via next-themes; a .light override is provided for the toggle.
+ * -------------------------------------------------------------------------- */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -47,82 +54,209 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
+/* Dark — default. Mirrors landing :root exactly. */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.875rem;
+
+  /* Surfaces */
+  --background:     oklch(0.16 0.012 220);
+  --foreground:     oklch(0.985 0.005 220);
+  --bg-1:           oklch(0.195 0.014 220);
+  --bg-2:           oklch(0.22 0.014 220);
+  --bg-3:           oklch(0.26 0.016 220);
+
+  --card:              oklch(0.195 0.014 220);
+  --card-foreground:   oklch(0.985 0.005 220);
+  --popover:           oklch(0.22 0.014 220);
+  --popover-foreground: oklch(0.985 0.005 220);
+
+  /* Mint — primary / encryption / "safe" */
+  --primary:              oklch(0.82 0.14 165);
+  --primary-foreground:   oklch(0.22 0.05 165);
+  --mint:                 oklch(0.82 0.14 165);
+
+  --secondary:            oklch(0.26 0.016 220);
+  --secondary-foreground: oklch(0.985 0.005 220);
+
+  --muted:                oklch(0.22 0.014 220);
+  --muted-foreground:     oklch(0.74 0.015 220);
+
+  --accent:               oklch(0.26 0.016 220);
+  --accent-foreground:    oklch(0.985 0.005 220);
+
+  --destructive:          oklch(0.70 0.22 25);
+
+  --border:               oklch(0.30 0.014 220);
+  --input:                oklch(0.26 0.016 220);
+  --ring:                 oklch(0.82 0.14 165);
+
+  /* Semantic status — used by repo-status, heatmap */
+  --ok:     oklch(0.78 0.16 150);
+  --warn:   oklch(0.82 0.17 80);
+  --err:    oklch(0.70 0.22 25);
+  --info:   oklch(0.70 0.15 240);
+
+  /* Charts / heatmap ramp (cool mint scale) */
+  --chart-1: oklch(0.78 0.16 150);
+  --chart-2: oklch(0.82 0.14 165);
+  --chart-3: oklch(0.70 0.15 240);
+  --chart-4: oklch(0.82 0.17 80);
+  --chart-5: oklch(0.70 0.22 25);
+
+  /* Glass */
+  --glass: color-mix(in oklch, var(--bg-1) 70%, transparent);
+
+  /* Sidebar (re-uses surfaces) */
+  --sidebar:                    var(--bg-1);
+  --sidebar-foreground:         var(--foreground);
+  --sidebar-primary:            var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent:             var(--bg-2);
+  --sidebar-accent-foreground:  var(--foreground);
+  --sidebar-border:             var(--border);
+  --sidebar-ring:               var(--ring);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+/* Light — single source of truth. next-themes removes .dark on <html> when
+ * the user toggles light; `html:not(.dark)` (specificity 0,1,1) overrides the
+ * :root dark defaults above. */
+html:not(.dark) {
+  --background:     oklch(0.985 0.004 220);
+  --foreground:     oklch(0.18 0.012 220);
+  --bg-1:           #ffffff;
+  --bg-2:           oklch(0.975 0.005 220);
+  --bg-3:           oklch(0.955 0.007 220);
+
+  --card:              #ffffff;
+  --card-foreground:   oklch(0.18 0.012 220);
+  --popover:           #ffffff;
+  --popover-foreground: oklch(0.18 0.012 220);
+
+  --primary:              oklch(0.64 0.14 165);
+  --primary-foreground:   #ffffff;
+  --mint:                 oklch(0.64 0.14 165);
+
+  --secondary:            oklch(0.955 0.007 220);
+  --secondary-foreground: oklch(0.18 0.012 220);
+
+  --muted:                oklch(0.96 0.006 220);
+  --muted-foreground:     oklch(0.45 0.012 220);
+
+  --accent:               oklch(0.955 0.007 220);
+  --accent-foreground:    oklch(0.18 0.012 220);
+
+  --destructive:          oklch(0.58 0.22 25);
+
+  --border:               oklch(0.90 0.008 220);
+  --input:                oklch(0.94 0.006 220);
+  --ring:                 oklch(0.64 0.14 165);
+
+  --ok:     oklch(0.60 0.16 150);
+  --warn:   oklch(0.70 0.17 80);
+  --err:    oklch(0.58 0.22 25);
+  --info:   oklch(0.58 0.15 240);
+
+  --glass: color-mix(in oklch, #ffffff 70%, transparent);
+
+  --sidebar:                    #ffffff;
+  --sidebar-foreground:         var(--foreground);
+  --sidebar-primary:            var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent:             oklch(0.955 0.007 220);
+  --sidebar-accent-foreground:  var(--foreground);
+  --sidebar-border:             var(--border);
+  --sidebar-ring:               var(--ring);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html { scroll-behavior: smooth; }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: 'ss01', 'cv11';
+    letter-spacing: -0.005em;
+    -webkit-font-smoothing: antialiased;
   }
+  ::selection { background: var(--primary); color: var(--primary-foreground); }
+
+  h1, h2, h3, h4 { letter-spacing: -0.02em; text-wrap: balance; }
+  p { text-wrap: pretty; }
+}
+
+/* ---- Landing-style signature utilities ---------------------------------- */
+@layer utilities {
+  .font-serif { letter-spacing: -0.015em; }
+  .font-serif-italic {
+    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+  }
+  /* Glass pill — used by nav, floating panels */
+  .glass-pill {
+    background: var(--glass);
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    box-shadow:
+      0 1px 0 color-mix(in oklch, var(--foreground) 6%, transparent) inset,
+      0 20px 40px -20px rgba(0, 0, 0, 0.45);
+  }
+  html:not(.dark) .glass-pill {
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.7) inset,
+      0 12px 32px -16px rgba(12, 20, 30, 0.18);
+  }
+  /* Ambient mint glow used behind heroes */
+  .ambient-glow {
+    position: absolute; inset: -20% -10% auto -10%;
+    height: 720px; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(60% 60% at 30% 30%, color-mix(in oklch, var(--primary) 24%, transparent) 0%, transparent 60%),
+      radial-gradient(50% 50% at 75% 40%, color-mix(in oklch, oklch(0.68 0.18 260) 20%, transparent) 0%, transparent 55%);
+    filter: blur(40px);
+    opacity: 0.85;
+  }
+  html:not(.dark) .ambient-glow { opacity: 0.55; }
+  /* Mint focus ring */
+  .focus-mint:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+  /* Animated status dot */
+  .pulse-ok::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--ok); display: inline-block; margin-right: 8px;
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--ok) 60%, transparent);
+    animation: gb-pulse 2s infinite;
+  }
+  .pulse-err::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--err); display: inline-block; margin-right: 8px;
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--err) 60%, transparent);
+    animation: gb-pulse 1.8s infinite;
+  }
+  @keyframes gb-pulse {
+    0%   { box-shadow: 0 0 0 0 color-mix(in oklch, currentColor 60%, transparent); }
+    70%  { box-shadow: 0 0 0 10px color-mix(in oklch, currentColor 0%, transparent); }
+    100% { box-shadow: 0 0 0 0 color-mix(in oklch, currentColor 0%, transparent); }
+  }
+  /* Code/terminal block */
+  .code-block {
+    font-family: var(--font-geist-mono), ui-monospace, 'SF Mono', Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.65;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--muted-foreground);
+    white-space: pre-wrap;
+  }
+  .code-block b { color: var(--foreground); font-weight: 500; }
 }
 
 /* Logo states */

@@ -4,20 +4,31 @@ import { Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Gitbacker badge — full-pill, subtle tinted variants that use --primary,
+ * --ok, --warn, --err from globals.
+ */
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
+  "inline-flex w-fit shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-2.5 py-0.5 text-[11.5px] font-medium whitespace-nowrap transition-[color,background,border-color] border focus-visible:ring-2 focus-visible:ring-ring/40 [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
+        default:
+          "bg-[color-mix(in_oklch,var(--primary)_18%,var(--bg-2))] text-[color-mix(in_oklch,var(--primary)_90%,var(--foreground))] border-[color-mix(in_oklch,var(--primary)_30%,var(--border))]",
         secondary:
-          "bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
+          "bg-[var(--bg-2)] text-muted-foreground border-border",
         destructive:
-          "bg-destructive text-white focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90",
+          "bg-[color-mix(in_oklch,var(--err)_16%,var(--bg-2))] text-[color-mix(in_oklch,var(--err)_90%,var(--foreground))] border-[color-mix(in_oklch,var(--err)_30%,var(--border))]",
+        success:
+          "bg-[color-mix(in_oklch,var(--ok)_16%,var(--bg-2))] text-[color-mix(in_oklch,var(--ok)_90%,var(--foreground))] border-[color-mix(in_oklch,var(--ok)_30%,var(--border))]",
+        warning:
+          "bg-[color-mix(in_oklch,var(--warn)_16%,var(--bg-2))] text-[color-mix(in_oklch,var(--warn)_95%,var(--foreground))] border-[color-mix(in_oklch,var(--warn)_30%,var(--border))]",
         outline:
-          "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 [a&]:hover:underline",
+          "border-border text-foreground bg-transparent [a&]:hover:bg-[var(--bg-2)]",
+        ghost:
+          "border-transparent text-muted-foreground [a&]:hover:bg-[var(--bg-2)] [a&]:hover:text-foreground",
+        link:
+          "text-primary underline-offset-4 border-transparent [a&]:hover:underline",
       },
     },
     defaultVariants: {
