@@ -191,10 +191,24 @@ export default function ReposPage() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("add") === "1") {
+    const params = new URLSearchParams(window.location.search);
+    let scrub = false;
+    if (params.get("add") === "1") {
       setOpen(true);
-      router.replace("/repos", { scroll: false });
+      scrub = true;
     }
+    const status = params.get("status");
+    if (status) {
+      const allowed = new Set([
+        ...STATUS_OPTIONS.map((o) => o.value),
+        "attention",
+      ]);
+      if (allowed.has(status)) {
+        setStatusFilter(status);
+      }
+      scrub = true;
+    }
+    if (scrub) router.replace("/repos", { scroll: false });
   }, [router]);
   const [urls, setUrls] = useState("");
   const [destinationId, setDestinationId] = useState<string>("");
@@ -261,7 +275,14 @@ export default function ReposPage() {
 
   const filtered = useMemo(() => {
     let result = repos;
-    if (statusFilter !== "all") {
+    if (statusFilter === "attention") {
+      result = result.filter(
+        (r) =>
+          r.status === "failed" ||
+          r.status === "access_error" ||
+          r.status === "unreachable",
+      );
+    } else if (statusFilter !== "all") {
       result = result.filter((r) => r.status === statusFilter);
     }
     if (search.trim()) {

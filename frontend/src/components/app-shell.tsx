@@ -42,7 +42,7 @@ function initialsOf(nameOrEmail: string): string {
 }
 
 function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return <div className="size-8" aria-hidden />;
@@ -51,7 +51,7 @@ function ThemeToggle() {
     <button
       type="button"
       aria-label="Toggle theme"
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
       className="relative grid size-8 place-items-center rounded-[8px] text-muted-foreground hover:text-foreground hover:bg-[var(--bg-3)] transition-colors"
     >
       <Sun className="h-4 w-4 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
@@ -76,17 +76,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, []);
 
+  // Share query keys with page-level queries so mutation invalidations
+  // (keyed on "repositories" / "destinations") refresh the sidebar counts too.
   const reposQuery = useQuery({
-    queryKey: ["repos-sidebar"],
+    queryKey: ["repositories"],
     queryFn: () => listRepositories(token!),
     enabled: !!token,
-    staleTime: 60_000,
   });
   const destsQuery = useQuery({
-    queryKey: ["destinations-sidebar"],
+    queryKey: ["destinations"],
     queryFn: () => listDestinations(token!),
     enabled: !!token,
-    staleTime: 60_000,
   });
 
   const counts = {

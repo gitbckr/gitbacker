@@ -105,8 +105,14 @@ export default function DestinationsPage() {
     enabled: !!token,
   });
 
-  const totalUsed = destinations.reduce((s, d) => s + d.used_bytes, 0);
-  const totalCapacity = destinations.reduce(
+  // Only aggregate destinations with known capacity. Treating null
+  // available_bytes as zero would inflate the "% used" figure for remote or
+  // unmounted destinations. Matches the guard StorageBar already uses per-row.
+  const withCapacity = destinations.filter(
+    (d) => d.available_bytes != null && d.available_bytes > 0,
+  );
+  const totalUsed = withCapacity.reduce((s, d) => s + d.used_bytes, 0);
+  const totalCapacity = withCapacity.reduce(
     (s, d) => s + d.used_bytes + (d.available_bytes ?? 0),
     0,
   );

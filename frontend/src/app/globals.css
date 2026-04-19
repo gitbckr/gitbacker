@@ -117,9 +117,10 @@
   --sidebar-ring:               var(--ring);
 }
 
-/* Light — toggled by next-themes removing .dark. We also support an explicit
- * .light class for forced override. */
-.light, :root:not(.dark).light-default {
+/* Light — single source of truth. next-themes removes .dark on <html> when
+ * the user toggles light; `html:not(.dark)` (specificity 0,1,1) overrides the
+ * :root dark defaults above. */
+html:not(.dark) {
   --background:     oklch(0.985 0.004 220);
   --foreground:     oklch(0.18 0.012 220);
   --bg-1:           #ffffff;
@@ -165,45 +166,6 @@
   --sidebar-accent-foreground:  var(--foreground);
   --sidebar-border:             var(--border);
   --sidebar-ring:               var(--ring);
-}
-
-/* next-themes sets .dark on <html> when dark is active. Our defaults above
- * *are* dark, so .dark just re-asserts them (idempotent). When the user
- * toggles light, next-themes removes .dark — we handle that with a rule
- * on <html> without .dark. */
-html:not(.dark) {
-  --background:     oklch(0.985 0.004 220);
-  --foreground:     oklch(0.18 0.012 220);
-  --bg-1:           #ffffff;
-  --bg-2:           oklch(0.975 0.005 220);
-  --bg-3:           oklch(0.955 0.007 220);
-  --card:           #ffffff;
-  --card-foreground: oklch(0.18 0.012 220);
-  --popover:        #ffffff;
-  --popover-foreground: oklch(0.18 0.012 220);
-  --primary:              oklch(0.64 0.14 165);
-  --primary-foreground:   #ffffff;
-  --mint:                 oklch(0.64 0.14 165);
-  --secondary:            oklch(0.955 0.007 220);
-  --secondary-foreground: oklch(0.18 0.012 220);
-  --muted:                oklch(0.96 0.006 220);
-  --muted-foreground:     oklch(0.45 0.012 220);
-  --accent:               oklch(0.955 0.007 220);
-  --accent-foreground:    oklch(0.18 0.012 220);
-  --destructive:          oklch(0.58 0.22 25);
-  --border:               oklch(0.90 0.008 220);
-  --input:                oklch(0.94 0.006 220);
-  --ring:                 oklch(0.64 0.14 165);
-  --ok:     oklch(0.60 0.16 150);
-  --warn:   oklch(0.70 0.17 80);
-  --err:    oklch(0.58 0.22 25);
-  --info:   oklch(0.58 0.15 240);
-  --glass: color-mix(in oklch, #ffffff 70%, transparent);
-  --sidebar:                    #ffffff;
-  --sidebar-foreground:         var(--foreground);
-  --sidebar-accent:             oklch(0.955 0.007 220);
-  --sidebar-accent-foreground:  var(--foreground);
-  --sidebar-border:             var(--border);
 }
 
 @layer base {

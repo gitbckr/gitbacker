@@ -322,8 +322,14 @@ function RecentRepos({ repos }: { repos: Repository[] }) {
     const copy = [...repos];
     copy.sort((a, b) => {
       // Failed first, then by last_backup_at desc
-      const aFailed = a.status === "failed" || a.status === "access_error";
-      const bFailed = b.status === "failed" || b.status === "access_error";
+      const aFailed =
+        a.status === "failed" ||
+        a.status === "access_error" ||
+        a.status === "unreachable";
+      const bFailed =
+        b.status === "failed" ||
+        b.status === "access_error" ||
+        b.status === "unreachable";
       if (aFailed !== bFailed) return aFailed ? -1 : 1;
       const aT = a.last_backup_at ? new Date(a.last_backup_at).getTime() : 0;
       const bT = b.last_backup_at ? new Date(b.last_backup_at).getTime() : 0;
@@ -487,7 +493,7 @@ export default function DashboardPage() {
         ),
       icon: AlertTriangleIcon,
       tone: failed > 0 ? "err" : "neutral",
-      href: "/repos?status=failed",
+      href: "/repos?status=attention",
     },
     {
       label: "Encrypted",
@@ -505,7 +511,14 @@ export default function DashboardPage() {
           </span>
         ),
       icon: HardDriveIcon,
-      tone: "ok",
+      tone:
+        totalRepos === 0
+          ? "neutral"
+          : encryptedCount === 0
+            ? "err"
+            : encryptedPct < 50
+              ? "warn"
+              : "ok",
       href: "/settings/encryption",
     },
   ];
@@ -546,8 +559,8 @@ export default function DashboardPage() {
               <ActivityIcon className="size-4 text-muted-foreground" />
               <h3 className="text-[13px] font-medium">Backup activity</h3>
             </div>
-            <span className="text-[11.5px] text-muted-foreground">
-              Past 12 months
+            <span className="text-[11.5px] text-muted-foreground tabular-nums">
+              {new Date().getFullYear()}
             </span>
           </header>
           <div className="px-5 py-5">

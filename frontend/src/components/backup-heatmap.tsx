@@ -63,7 +63,13 @@ function cellFill(tone: CellTone): string {
 }
 
 function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  // Use local components. toISOString() converts to UTC first, which shifts
+  // the calendar day by one for users east of UTC and desyncs cell keys from
+  // the backend's UTC-day-based date strings in the opposite direction.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function formatHuman(d: Date): string {
