@@ -88,7 +88,11 @@ def _credential_env(
         yield env, url
         return
 
-    secret = decrypt_field(credential.credential_data, _APP_SECRET) if _APP_SECRET else credential.credential_data
+    if not _APP_SECRET:
+        raise RuntimeError(
+            "JWT_SECRET environment variable is required to decrypt credentials"
+        )
+    secret = decrypt_field(credential.credential_data, _APP_SECRET)
 
     if credential.credential_type == CredentialType.PAT:
         parsed = urlparse(url)
@@ -101,8 +105,9 @@ def _credential_env(
         return
 
     # SSH_KEY — write to a temp file with strict permissions.
-    # libcrypto is strict about key file format: LF line endings only and
-    # a trailing newline. Otherwise it fails with "error in libcrypto".
+    # libcrypto requires LF line endings and a trailing newline; textareas in
+    # the browser commonly strip the trailing newline on paste and Windows
+    # clients may send CRLF. Normalize both so the key parser accepts it.
     fd, keypath = tempfile.mkstemp(suffix=".key")
     try:
         normalized = secret.replace("\r\n", "\n").replace("\r", "\n")
