@@ -1,12 +1,21 @@
 import uuid
 
 from fastapi import HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import hash_password, verify_password
 from app.repositories import user_repo
 from shared.enums import IdentityProvider
-from shared.models import User, UserIdentity
+from shared.models import (
+    Destination,
+    EncryptionKey,
+    GitCredential,
+    NotificationChannel,
+    Repository,
+    User,
+    UserIdentity,
+)
 from shared.schemas import PasswordChange, UserCreate, UserSelfUpdate, UserUpdate
 
 
@@ -74,7 +83,49 @@ async def update_user(
     return user
 
 
-async def delete_user(db: AsyncSession, user_id: str, current_user: User) -> None:
+_OWNED_MODELS = (
+    ("repositories", Repository),
+    ("destinations", Destination),
+    ("encryption_keys", EncryptionKey),
+    ("notification_channels", NotificationChannel),
+    ("git_credentials", GitCredential),
+)
+
+
+async def _count_owned(db: AsyncSession, user_id: uuid.UUID) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for key, model in _OWNED_MODELS:
+        n = (
+            await db.execute(
+                select(func.count()).select_from(model).where(model.created_by == user_id)
+            )
+        ).scalar_one()
+        if n:
+            counts[key] = n
+    return counts
+
+
+def _humanize(counts: dict[str, int]) -> str:
+    labels = {
+        "repositories": ("repository", "repositories"),
+        "destinations": ("destination", "destinations"),
+        "encryption_keys": ("encryption key", "encryption keys"),
+        "notification_channels": ("notification channel", "notification channels"),
+        "git_credentials": ("git credential", "git credentials"),
+    }
+    parts = [
+        f"{n} {labels[key][0] if n == 1 else labels[key][1]}"
+        for key, n in counts.items()
+    ]
+    return ", ".join(parts)
+
+
+async def delete_user(
+    db: AsyncSession,
+    user_id: str,
+    current_user: User,
+    reassign_to: str | None = None,
+) -> None:
     if str(current_user.id) == user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -83,6 +134,54 @@ async def delete_user(db: AsyncSession, user_id: str, current_user: User) -> Non
     user = await user_repo.get_by_id(db, uuid.UUID(user_id))
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # Resolve reassignment target first, if provided.
+    reassign_uuid: uuid.UUID | None = None
+    if reassign_to:
+        try:
+            reassign_uuid = uuid.UUID(reassign_to)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="reassign_to is not a valid UUID",
+            ) from e
+        if reassign_uuid == user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot reassign to the user being deleted",
+            )
+        target = await user_repo.get_by_id(db, reassign_uuid)
+        if not target or not target.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="reassign_to must point to an active user",
+            )
+
+    counts = await _count_owned(db, user.id)
+
+    if counts and reassign_uuid is None:
+        # Structured payload so the frontend can render a rich confirm dialog.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "owns_resources",
+                "message": "Cannot delete user — they still own "
+                + _humanize(counts)
+                + ". Reassign or deactivate them first.",
+                "counts": counts,
+            },
+        )
+
+    if counts and reassign_uuid is not None:
+        # Bulk-reassign every owned FK in-transaction.
+        from sqlalchemy import update
+
+        for _, model in _OWNED_MODELS:
+            await db.execute(
+                update(model)
+                .where(model.created_by == user.id)
+                .values(created_by=reassign_uuid)
+            )
 
     await db.delete(user)
     await db.commit()

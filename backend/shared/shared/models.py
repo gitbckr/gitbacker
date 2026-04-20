@@ -59,7 +59,12 @@ class User(Base):
     )
 
     identities: Mapped[list["UserIdentity"]] = relationship(back_populates="user", passive_deletes=True)
-    repositories: Mapped[list["Repository"]] = relationship(back_populates="created_by_user")
+    # passive_deletes=True so SQLAlchemy doesn't try to NULL out created_by
+    # on the child rows (which are NOT NULL). Delete is gated in service-layer
+    # by a pre-check; the DB-level RESTRICT is the backstop.
+    repositories: Mapped[list["Repository"]] = relationship(
+        back_populates="created_by_user", passive_deletes=True
+    )
     permissions: Mapped[list["RepoPermissionEntry"]] = relationship(back_populates="user", passive_deletes=True)
 
 

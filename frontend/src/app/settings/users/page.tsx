@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import {
+  ApiError,
   createUser,
   deleteUser,
   listUsers,
@@ -60,6 +61,11 @@ export default function UsersSettingsPage() {
   const [editName, setEditName] = useState("");
   const [editRole, setEditRole] = useState("");
 
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [ownedCounts, setOwnedCounts] = useState<Record<string, number> | null>(
+    null,
+  );
+
   const {
     data: users = [],
     isLoading,
@@ -107,12 +113,28 @@ export default function UsersSettingsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteUser(token!, id),
+    mutationFn: ({ id, reassignTo }: { id: string; reassignTo?: string }) =>
+      deleteUser(token!, id, { reassignTo }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      setDeletingUser(null);
+      setOwnedCounts(null);
       toast.success("User deleted");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      if (
+        err instanceof ApiError &&
+        err.data &&
+        typeof err.data === "object" &&
+        (err.data as { code?: string }).code === "owns_resources"
+      ) {
+        const counts = (err.data as { counts?: Record<string, number> })
+          .counts;
+        setOwnedCounts(counts ?? {});
+        return;
+      }
+      toast.error(err.message);
+    },
   });
 
   const toggleActiveMutation = useMutation({
@@ -284,13 +306,8 @@ export default function UsersSettingsPage() {
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => {
-                            if (
-                              confirm(
-                                `Delete ${u.name}? This cannot be undone.`,
-                              )
-                            ) {
-                              deleteMutation.mutate(u.id);
-                            }
+                            setOwnedCounts(null);
+                            setDeletingUser(u);
                           }}
                         >
                           Delete
@@ -367,6 +384,118 @@ export default function UsersSettingsPage() {
               {updateMutation.isPending ? "Saving..." : "Save"}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!deletingUser}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingUser(null);
+            setOwnedCounts(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {ownedCounts
+                ? `${deletingUser?.name ?? "This user"} still owns resources`
+                : `Delete ${deletingUser?.name ?? "user"}?`}
+            </DialogTitle>
+          </DialogHeader>
+          {ownedCounts ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Deleting would break ownership of:
+              </p>
+              <ul className="space-y-1 text-sm">
+                {Object.entries(ownedCounts).map(([key, n]) => (
+                  <li key={key} className="flex items-baseline gap-2">
+                    <span className="font-medium tabular-nums">{n}</span>
+                    <span className="text-muted-foreground">
+                      {key.replace(/_/g, " ")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-sm text-muted-foreground">
+                Choose how to proceed. Deactivate keeps history intact;
+                reassignment transfers ownership to you before deletion.
+              </p>
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setDeletingUser(null);
+                    setOwnedCounts(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={toggleActiveMutation.isPending}
+                  onClick={() => {
+                    if (!deletingUser) return;
+                    toggleActiveMutation.mutate(
+                      { id: deletingUser.id, is_active: false },
+                      {
+                        onSuccess: () => {
+                          setDeletingUser(null);
+                          setOwnedCounts(null);
+                          toast.success("User deactivated");
+                        },
+                      },
+                    );
+                  }}
+                >
+                  {toggleActiveMutation.isPending
+                    ? "Deactivating..."
+                    : "Deactivate instead"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={deleteMutation.isPending || !user}
+                  onClick={() => {
+                    if (!deletingUser || !user) return;
+                    deleteMutation.mutate({
+                      id: deletingUser.id,
+                      reassignTo: user.id,
+                    });
+                  }}
+                >
+                  {deleteMutation.isPending
+                    ? "Reassigning..."
+                    : "Reassign to me & delete"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                This action can&apos;t be undone.
+              </p>
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
+                <Button
+                  variant="ghost"
+                  onClick={() => setDeletingUser(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={deleteMutation.isPending}
+                  onClick={() => {
+                    if (!deletingUser) return;
+                    deleteMutation.mutate({ id: deletingUser.id });
+                  }}
+                >
+                  {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
