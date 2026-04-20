@@ -65,6 +65,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<string>;
+      if (ce.detail) setToken(ce.detail);
+    };
+    window.addEventListener("gitbacker:token-refreshed", handler);
+    return () =>
+      window.removeEventListener("gitbacker:token-refreshed", handler);
+  }, []);
+
+  useEffect(() => {
     const { access, refresh } = readToken();
     if (access) {
       setToken(access);

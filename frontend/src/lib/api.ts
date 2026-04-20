@@ -1,10 +1,71 @@
 const API_BASE = "/api";
 
+const TOKEN_KEY = "gitbacker_token";
+const REFRESH_KEY = "gitbacker_refresh";
+
 type RequestOptions = {
   method?: string;
   body?: unknown;
   token?: string | null;
+  _retried?: boolean;
 };
+
+function readStoredTokens(): { access: string | null; refresh: string | null } {
+  if (typeof window === "undefined") return { access: null, refresh: null };
+  return {
+    access:
+      localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY),
+    refresh:
+      localStorage.getItem(REFRESH_KEY) ?? sessionStorage.getItem(REFRESH_KEY),
+  };
+}
+
+function writeStoredTokens(access: string, refresh: string) {
+  const storage = localStorage.getItem(TOKEN_KEY) ? localStorage : sessionStorage;
+  storage.setItem(TOKEN_KEY, access);
+  storage.setItem(REFRESH_KEY, refresh);
+}
+
+function clearStoredTokens() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_KEY);
+}
+
+let refreshInflight: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshInflight) return refreshInflight;
+  const { refresh } = readStoredTokens();
+  if (!refresh) return null;
+  refreshInflight = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refresh }),
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as TokenResponse;
+      writeStoredTokens(data.access_token, data.refresh_token);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("gitbacker:token-refreshed", {
+            detail: data.access_token,
+          }),
+        );
+      }
+      return data.access_token;
+    } catch {
+      return null;
+    } finally {
+      refreshInflight = null;
+    }
+  })();
+  return refreshInflight;
+}
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {
@@ -21,23 +82,32 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   });
 
   if (!res.ok) {
-    // Token expired or revoked — clear auth and redirect to login.
-    // Only triggers for authenticated requests (opts.token is set),
-    // so login failures (no token) are handled normally below.
-    if (res.status === 401 && opts.token) {
-      localStorage.removeItem("gitbacker_token");
-      localStorage.removeItem("gitbacker_refresh");
-      window.location.href = "/login";
+    // Access token expired — try a silent refresh once before giving up.
+    if (res.status === 401 && opts.token && !opts._retried) {
+      const newAccess = await refreshAccessToken();
+      if (newAccess) {
+        return request<T>(path, { ...opts, token: newAccess, _retried: true });
+      }
+      clearStoredTokens();
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
       throw new ApiError(401, "Session expired");
     }
     const detail = await res.json().catch(() => ({ detail: res.statusText }));
     let message = "Request failed";
+    let data: unknown = undefined;
     if (typeof detail.detail === "string") {
       message = detail.detail;
     } else if (Array.isArray(detail.detail) && detail.detail.length > 0) {
       message = detail.detail.map((e: { msg?: string }) => e.msg ?? "").join("; ");
+    } else if (detail.detail && typeof detail.detail === "object") {
+      data = detail.detail;
+      if (typeof (detail.detail as { message?: unknown }).message === "string") {
+        message = (detail.detail as { message: string }).message;
+      }
     }
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, data);
   }
 
   if (res.status === 204) return undefined as T;
@@ -48,6 +118,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public data?: unknown,
   ) {
     super(message);
   }
@@ -109,8 +180,15 @@ export function updateUser(
   return request(`/users/${id}`, { method: "PATCH", body: data, token });
 }
 
-export function deleteUser(token: string, id: string): Promise<void> {
-  return request(`/users/${id}`, { method: "DELETE", token });
+export function deleteUser(
+  token: string,
+  id: string,
+  opts: { reassignTo?: string } = {},
+): Promise<void> {
+  const qs = opts.reassignTo
+    ? `?reassign_to=${encodeURIComponent(opts.reassignTo)}`
+    : "";
+  return request(`/users/${id}${qs}`, { method: "DELETE", token });
 }
 
 export function changePassword(
