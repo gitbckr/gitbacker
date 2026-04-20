@@ -1,3 +1,15 @@
+# [0.19.0](https://github.com/gitbckr/gitbacker/compare/v0.18.0...v0.19.0) (2026-04-20)
+
+
+### Bug Fixes
+
+* **web:** silently refresh access token on 401 instead of logging out ([13861dd](https://github.com/gitbckr/gitbacker/commit/13861dd5e817a21dda0a0d3d590f51e751ac2540))
+
+
+### Features
+
+* safe delete for users with owned resources ([1101889](https://github.com/gitbckr/gitbacker/commit/1101889c424bd87b27af7ef70a70359ab07947a6))
+
 # [0.18.0](https://github.com/gitbckr/gitbacker/compare/v0.17.2...v0.18.0) (2026-04-19)
 
 
