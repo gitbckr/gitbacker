@@ -57,3 +57,7 @@ class CredentialType(str, enum.Enum):
 
 class NotificationChannelType(str, enum.Enum):
     SLACK = "slack"
+    DISCORD = "discord"
+    EMAIL = "email"
+    WEBHOOK = "webhook"
+    APPRISE_URL = "apprise_url"

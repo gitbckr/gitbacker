@@ -472,10 +472,17 @@ export function listBackupJobs(token: string, repoId: string): Promise<BackupJob
 
 // --- Notification Channels ---
 
+export type NotificationChannelType =
+  | "slack"
+  | "discord"
+  | "email"
+  | "webhook"
+  | "apprise_url";
+
 export type NotificationChannel = {
   id: string;
   name: string;
-  channel_type: "slack";
+  channel_type: NotificationChannelType;
   config_data: Record<string, string>;
   enabled: boolean;
   on_backup_failure: boolean;
@@ -496,7 +503,7 @@ export function createNotificationChannel(
   token: string,
   data: {
     name: string;
-    channel_type: "slack";
+    channel_type: NotificationChannelType;
     config_data: Record<string, string>;
     enabled?: boolean;
     on_backup_failure?: boolean;

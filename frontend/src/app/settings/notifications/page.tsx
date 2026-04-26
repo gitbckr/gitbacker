@@ -8,6 +8,7 @@ import {
   createNotificationChannel,
   deleteNotificationChannel,
   listNotificationChannels,
+  type NotificationChannel,
   testNotificationChannel,
   updateNotificationChannel,
 } from "@/lib/api";
@@ -50,7 +51,7 @@ type ConfigFieldDef = {
   label: string;
   placeholder: string;
   helpText?: string;
-  inputType?: "text" | "url" | "textarea";
+  inputType?: "text" | "url" | "password" | "textarea";
 };
 
 type ChannelTypeDef = {
@@ -77,14 +78,109 @@ const CHANNEL_TYPES: Record<string, ChannelTypeDef> = {
     ],
     summary: (c) => {
       const url = c.webhook_url ?? "";
-      // Show last segment of the webhook path for identification
       const parts = url.split("/");
       return parts.length > 1 ? `.../${parts.slice(-2).join("/")}` : url;
     },
   },
-  // Future examples:
-  // discord: { label: "Discord", description: "...", fields: [...], summary: ... },
-  // email:   { label: "Email",   description: "...", fields: [...], summary: ... },
+  discord: {
+    label: "Discord",
+    description: "Send alerts to a Discord channel via a webhook.",
+    fields: [
+      {
+        key: "webhook_url",
+        label: "Webhook URL",
+        placeholder: "https://discord.com/api/webhooks/ID/TOKEN",
+        helpText:
+          "In Discord: Server Settings → Integrations → Webhooks → New Webhook → Copy URL.",
+        inputType: "url",
+      },
+    ],
+    summary: (c) => {
+      const url = c.webhook_url ?? "";
+      const parts = url.split("/webhooks/");
+      return parts.length > 1 ? `.../${parts[1].split("/")[0]}` : url;
+    },
+  },
+  email: {
+    label: "Email (SMTP)",
+    description: "Send alerts via SMTP. Works with any standard email server.",
+    fields: [
+      {
+        key: "smtp_host",
+        label: "SMTP host",
+        placeholder: "smtp.example.com",
+        inputType: "text",
+      },
+      {
+        key: "smtp_port",
+        label: "SMTP port",
+        placeholder: "587",
+        helpText: "Typical: 587 (STARTTLS), 465 (SSL), 25 (plain).",
+        inputType: "text",
+      },
+      {
+        key: "smtp_user",
+        label: "SMTP username",
+        placeholder: "alerts@example.com",
+        inputType: "text",
+      },
+      {
+        key: "smtp_password",
+        label: "SMTP password",
+        placeholder: "••••••••",
+        inputType: "password",
+      },
+      {
+        key: "from_addr",
+        label: "From address",
+        placeholder: "alerts@example.com",
+        inputType: "text",
+      },
+      {
+        key: "to_addrs",
+        label: "To addresses",
+        placeholder: "ops@example.com, oncall@example.com",
+        helpText: "Comma-separated list of recipients.",
+        inputType: "text",
+      },
+    ],
+    summary: (c) => c.to_addrs ?? c.smtp_host ?? "(unconfigured)",
+  },
+  webhook: {
+    label: "Generic webhook",
+    description:
+      "POST a JSON payload to any HTTPS endpoint. Good for custom integrations.",
+    fields: [
+      {
+        key: "url",
+        label: "Endpoint URL",
+        placeholder: "https://example.com/alerts",
+        helpText: "The endpoint will receive an Apprise-formatted JSON POST.",
+        inputType: "url",
+      },
+    ],
+    summary: (c) => c.url ?? "",
+  },
+  apprise_url: {
+    label: "Apprise URL (advanced)",
+    description:
+      "Paste a raw Apprise URL for any supported service (Telegram, PagerDuty, etc.).",
+    fields: [
+      {
+        key: "url",
+        label: "Apprise URL",
+        placeholder: "telegram://bot-token/chat-id",
+        helpText:
+          "See Apprise documentation for the full list of supported schemes.",
+        inputType: "text",
+      },
+    ],
+    summary: (c) => {
+      const url = c.url ?? "";
+      const scheme = url.split("://")[0];
+      return scheme ? `${scheme}://…` : url;
+    },
+  },
 };
 
 const CHANNEL_TYPE_KEYS = Object.keys(CHANNEL_TYPES);
@@ -119,6 +215,7 @@ export default function NotificationsSettingsPage() {
   const { token } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [channelType, setChannelType] = useState(CHANNEL_TYPE_KEYS[0]);
   const [configFields, setConfigFields] = useState<Record<string, string>>({});
@@ -127,6 +224,7 @@ export default function NotificationsSettingsPage() {
   });
 
   const typeDef = CHANNEL_TYPES[channelType];
+  const isEditing = editingId !== null;
 
   const { data: channels = [] } = useQuery({
     queryKey: ["notification-channels"],
@@ -135,17 +233,32 @@ export default function NotificationsSettingsPage() {
   });
 
   const resetForm = () => {
+    setEditingId(null);
     setName("");
     setChannelType(CHANNEL_TYPE_KEYS[0]);
     setConfigFields({});
     setEvents({ ...DEFAULT_EVENTS });
   };
 
+  const openForEdit = (c: NotificationChannel) => {
+    setEditingId(c.id);
+    setName(c.name);
+    setChannelType(c.channel_type);
+    setConfigFields({ ...c.config_data });
+    setEvents({
+      on_backup_failure: c.on_backup_failure,
+      on_restore_failure: c.on_restore_failure,
+      on_repo_verification_failure: c.on_repo_verification_failure,
+      on_disk_space_low: c.on_disk_space_low,
+    });
+    setOpen(true);
+  };
+
   const createMutation = useMutation({
     mutationFn: () =>
       createNotificationChannel(token!, {
         name,
-        channel_type: channelType as "slack",
+        channel_type: channelType as NotificationChannel["channel_type"],
         config_data: configFields,
         ...events,
       }),
@@ -154,6 +267,22 @@ export default function NotificationsSettingsPage() {
       setOpen(false);
       resetForm();
       toast.success("Notification channel added");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      updateNotificationChannel(token!, editingId!, {
+        name,
+        config_data: configFields,
+        ...events,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notification-channels"] });
+      setOpen(false);
+      resetForm();
+      toast.success("Notification channel updated");
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -204,7 +333,9 @@ export default function NotificationsSettingsPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add notification channel</DialogTitle>
+              <DialogTitle>
+                {isEditing ? "Edit notification channel" : "Add notification channel"}
+              </DialogTitle>
               <DialogDescription>
                 {typeDef?.description ?? "Configure a notification channel."}
               </DialogDescription>
@@ -212,7 +343,11 @@ export default function NotificationsSettingsPage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                createMutation.mutate();
+                if (isEditing) {
+                  updateMutation.mutate();
+                } else {
+                  createMutation.mutate();
+                }
               }}
               className="space-y-4"
             >
@@ -236,6 +371,7 @@ export default function NotificationsSettingsPage() {
                     setChannelType(v);
                     setConfigFields({});
                   }}
+                  disabled={isEditing}
                 >
                   <SelectTrigger id="channel-type">
                     <SelectValue />
@@ -248,6 +384,12 @@ export default function NotificationsSettingsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {isEditing && (
+                  <p className="text-xs text-muted-foreground">
+                    Channel type can&apos;t be changed. Delete and recreate to
+                    switch providers.
+                  </p>
+                )}
               </div>
 
               {typeDef?.fields.map((field) => (
@@ -319,9 +461,15 @@ export default function NotificationsSettingsPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={createMutation.isPending}
+                disabled={createMutation.isPending || updateMutation.isPending}
               >
-                {createMutation.isPending ? "Adding..." : "Add channel"}
+                {isEditing
+                  ? updateMutation.isPending
+                    ? "Updating..."
+                    : "Update channel"
+                  : createMutation.isPending
+                    ? "Adding..."
+                    : "Add channel"}
               </Button>
             </form>
           </DialogContent>
@@ -342,7 +490,7 @@ export default function NotificationsSettingsPage() {
               <TableHead>Config</TableHead>
               <TableHead>Events</TableHead>
               <TableHead>Enabled</TableHead>
-              <TableHead className="w-[140px]" />
+              <TableHead className="w-[200px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -395,6 +543,13 @@ export default function NotificationsSettingsPage() {
                         disabled={testMutation.isPending}
                       >
                         Test
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openForEdit(c)}
+                      >
+                        Edit
                       </Button>
                       <Button
                         variant="ghost"

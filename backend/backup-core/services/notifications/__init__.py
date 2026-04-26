@@ -8,8 +8,6 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from shared.models import NotificationChannel
 
-from shared.enums import NotificationChannelType
-
 logger = logging.getLogger(__name__)
 
 
@@ -38,10 +36,7 @@ class NotificationProvider(Protocol):
 
 
 def get_notification_provider(channel: NotificationChannel) -> NotificationProvider:
-    """Factory: return the right provider for the given channel type."""
-    if channel.channel_type == NotificationChannelType.SLACK:
-        from .slack import SlackNotificationProvider
+    """Factory: every supported channel_type dispatches via Apprise."""
+    from .apprise_provider import AppriseNotificationProvider
 
-        return SlackNotificationProvider(channel.config_data)
-
-    raise ValueError(f"Unknown notification channel type: {channel.channel_type}")
+    return AppriseNotificationProvider(channel)
