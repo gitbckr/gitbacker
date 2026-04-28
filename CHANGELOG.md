@@ -1,3 +1,10 @@
+# [0.20.0](https://github.com/gitbckr/gitbacker/compare/v0.19.0...v0.20.0) (2026-04-28)
+
+
+### Features
+
+* multi-provider notifications via Apprise + edit UI + clearer errors ([be1b0ce](https://github.com/gitbckr/gitbacker/commit/be1b0cec862d4e73194d5ffff09d7be2c8b9b7c5))
+
 # [0.19.0](https://github.com/gitbckr/gitbacker/compare/v0.18.0...v0.19.0) (2026-04-20)
 
 
