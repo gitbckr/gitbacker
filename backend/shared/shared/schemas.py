@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
 from .enums import (
     ArchiveFormat,
@@ -371,12 +371,15 @@ class NotificationChannelCreate(BaseModel):
     on_repo_verification_failure: bool = True
     on_disk_space_low: bool = True
 
-    @field_validator("config_data")
-    @classmethod
-    def validate_config(cls, v: dict) -> dict:
-        if not v:
-            raise ValueError("config_data is required")
-        return v
+    @model_validator(mode="after")
+    def _validate_config_for_type(self) -> "NotificationChannelCreate":
+        from .notifications import ChannelConfigError, validate_channel_config
+
+        try:
+            validate_channel_config(self.channel_type, self.config_data)
+        except ChannelConfigError as e:
+            raise ValueError(str(e)) from e
+        return self
 
 
 class NotificationChannelRead(BaseModel):
