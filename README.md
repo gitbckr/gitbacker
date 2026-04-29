@@ -39,7 +39,7 @@ Designed for **paranoid CEOs, junior DevOps engineers, and small teams** who wan
 - **Restore** — force-mirror push a snapshot back to any git remote
 - **Encryption at rest** — GPG symmetric encryption for backup archives
 - **Git credentials** — store PATs or SSH keys per host for private repos
-- **Notifications** — Slack alerts on backup/restore failures and low disk space
+- **Notifications** — Slack, Discord, email (SMTP), generic webhooks, or any [Apprise](https://github.com/caronc/apprise)-supported service for backup/restore failures and low disk space
 - **Multi-user** — admin and operator roles with per-repo permissions
 - **Self-hosted** — single `docker compose up` runs the whole stack
 
@@ -166,7 +166,7 @@ uv run pytest
 2. **Settings → General** — set the default backup schedule and encryption preference
 3. **Destinations** — add a storage destination (local path) and mark it as default
 4. **Settings → Git Credentials** — add a PAT or SSH key for private repo access (optional)
-5. **Settings → Notifications** — add a Slack webhook for failure alerts (optional)
+5. **Settings → Notifications** — wire up a Slack, Discord, email, or webhook channel for failure alerts (optional)
 6. **Repos** — paste repo URLs, submit, watch them go green
 
 ## Tech Stack
