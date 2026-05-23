@@ -55,3 +55,12 @@ async def delete_destination(
     user: User = Depends(require_admin),
 ) -> None:
     await destination_service.delete_destination(db, str(destination_id))
+
+
+@router.post("/{destination_id}/test")
+async def test_destination(
+    destination_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_admin),
+) -> dict:
+    return await destination_service.test_destination(db, str(destination_id))

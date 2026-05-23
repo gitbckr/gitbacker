@@ -15,6 +15,7 @@ from .enums import (
     TriggerType,
     UserRole,
 )
+from .storage import SECRET_KEYS, StorageConfigError, validate_destination_config
 
 
 # --- Auth ---
@@ -101,8 +102,20 @@ class PasswordChange(BaseModel):
 class DestinationCreate(BaseModel):
     alias: str
     storage_type: StorageType = StorageType.LOCAL
-    path: str
+    path: str | None = None
+    config_data: dict | None = None
+    quota_bytes: int | None = None
     is_default: bool = False
+
+    @model_validator(mode="after")
+    def _validate_storage_config(self) -> "DestinationCreate":
+        if self.quota_bytes is not None and self.quota_bytes <= 0:
+            raise ValueError("quota_bytes must be positive")
+        try:
+            validate_destination_config(self.storage_type, self.config_data, self.path)
+        except StorageConfigError as e:
+            raise ValueError(str(e)) from e
+        return self
 
 
 class DestinationRead(BaseModel):
@@ -110,6 +123,8 @@ class DestinationRead(BaseModel):
     alias: str
     storage_type: StorageType
     path: str
+    config_data: dict | None = None
+    quota_bytes: int | None = None
     is_default: bool
     created_by: uuid.UUID
     created_at: datetime
@@ -119,11 +134,27 @@ class DestinationRead(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @model_validator(mode="after")
+    def _scrub_secrets(self) -> "DestinationRead":
+        if self.config_data:
+            self.config_data = {
+                k: v for k, v in self.config_data.items() if k not in SECRET_KEYS
+            }
+        return self
+
 
 class DestinationUpdate(BaseModel):
     alias: str | None = None
     path: str | None = None
+    config_data: dict | None = None
+    quota_bytes: int | None = None
     is_default: bool | None = None
+
+    @model_validator(mode="after")
+    def _check_quota(self) -> "DestinationUpdate":
+        if self.quota_bytes is not None and self.quota_bytes <= 0:
+            raise ValueError("quota_bytes must be positive (use null to clear)")
+        return self
 
 
 # --- Repositories ---

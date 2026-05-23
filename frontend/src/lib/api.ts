@@ -210,8 +210,10 @@ export function updateMe(
 export type Destination = {
   id: string;
   alias: string;
-  storage_type: string;
+  storage_type: "local" | "s3";
   path: string;
+  config_data: Record<string, string> | null;
+  quota_bytes: number | null;
   is_default: boolean;
   created_by: string;
   created_at: string;
@@ -220,13 +222,30 @@ export type Destination = {
   available_bytes: number | null;
 };
 
+export type DestinationCreateInput = {
+  alias: string;
+  storage_type: "local" | "s3";
+  path?: string | null;
+  config_data?: Record<string, string | boolean> | null;
+  quota_bytes?: number | null;
+  is_default?: boolean;
+};
+
+export type DestinationUpdateInput = {
+  alias?: string;
+  path?: string;
+  config_data?: Record<string, string | boolean> | null;
+  quota_bytes?: number | null;
+  is_default?: boolean;
+};
+
 export function listDestinations(token: string): Promise<Destination[]> {
   return request("/destinations", { token });
 }
 
 export function createDestination(
   token: string,
-  data: { alias: string; path: string; storage_type?: string; is_default?: boolean },
+  data: DestinationCreateInput,
 ): Promise<Destination> {
   return request("/destinations", { method: "POST", body: data, token });
 }
@@ -234,13 +253,20 @@ export function createDestination(
 export function updateDestination(
   token: string,
   id: string,
-  data: { alias?: string; path?: string; is_default?: boolean },
+  data: DestinationUpdateInput,
 ): Promise<Destination> {
   return request(`/destinations/${id}`, { method: "PATCH", body: data, token });
 }
 
 export function deleteDestination(token: string, id: string): Promise<void> {
   return request(`/destinations/${id}`, { method: "DELETE", token });
+}
+
+export function testDestination(
+  token: string,
+  id: string,
+): Promise<{ ok: boolean; message: string }> {
+  return request(`/destinations/${id}/test`, { method: "POST", token });
 }
 
 // --- Repositories ---
