@@ -20,6 +20,7 @@ from services.git_service import scrub_credentials
 from services.encryption import get_encryption_provider
 from services.notifications import NotificationEvent
 from shared.enums import ArchiveFormat, JobStatus
+from shared.storage_backends import get_storage_backend
 
 logger = logging.getLogger(__name__)
 
@@ -48,18 +49,17 @@ def run_restore(session: Session, restore_job_id: str) -> dict:
         if not destination:
             raise RuntimeError("Destination no longer exists")
 
-        dest_root = Path(destination.path).resolve()
-        archive_path = (dest_root / snapshot.artifact_filename).resolve()
-        if not archive_path.is_relative_to(dest_root):
-            raise RuntimeError("Invalid archive path")
-        if not archive_path.is_file():
-            raise RuntimeError(f"Archive file not found: {archive_path}")
+        backend = get_storage_backend(destination)
 
         log_lines.append(f"Loaded snapshot artifact: {snapshot.artifact_filename}")
         log_lines.append(f"Format: {snapshot.archive_format.value}")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
+
+            # Fetch the archive from its storage backend into the temp dir.
+            archive_path = tmp_path / snapshot.artifact_filename
+            backend.download(snapshot.artifact_filename, archive_path)
 
             # Decrypt if needed
             if snapshot.archive_format == ArchiveFormat.TAR_GZ_GPG:
@@ -235,15 +235,13 @@ def run_restore_preview(session: Session, preview_id: str) -> dict:
         if not destination:
             raise RuntimeError("Destination no longer exists")
 
-        dest_root = Path(destination.path).resolve()
-        archive_path = (dest_root / snapshot.artifact_filename).resolve()
-        if not archive_path.is_relative_to(dest_root):
-            raise RuntimeError("Invalid archive path")
-        if not archive_path.is_file():
-            raise RuntimeError(f"Archive file not found: {archive_path}")
+        backend = get_storage_backend(destination)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
+
+            archive_path = tmp_path / snapshot.artifact_filename
+            backend.download(snapshot.artifact_filename, archive_path)
 
             # Decrypt if needed
             if snapshot.archive_format == ArchiveFormat.TAR_GZ_GPG:
@@ -335,15 +333,13 @@ def run_detailed_preview(session: Session, preview_id: str) -> dict:
         if not destination:
             raise RuntimeError("Destination no longer exists")
 
-        dest_root = Path(destination.path).resolve()
-        archive_path = (dest_root / snapshot.artifact_filename).resolve()
-        if not archive_path.is_relative_to(dest_root):
-            raise RuntimeError("Invalid archive path")
-        if not archive_path.is_file():
-            raise RuntimeError(f"Archive file not found: {archive_path}")
+        backend = get_storage_backend(destination)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
+
+            archive_path = tmp_path / snapshot.artifact_filename
+            backend.download(snapshot.artifact_filename, archive_path)
 
             # Decrypt if needed
             if snapshot.archive_format == ArchiveFormat.TAR_GZ_GPG:

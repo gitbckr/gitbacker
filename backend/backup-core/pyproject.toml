@@ -10,11 +10,12 @@ dependencies = [
     "python-dotenv>=1.0",
     "croniter>=6.0",
     "apprise>=1.9",
+    "boto3>=1.34",
     "shared",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "moto[s3]>=5.0"]
 
 [tool.uv.sources]
 shared = { path = "../shared", editable = true }

@@ -80,3 +80,71 @@ async def test_delete_destination(db_session, admin_user):
     results = await destination_service.list_destinations(db_session)
     aliases = {d.alias for d in results}
     assert "ToDelete" not in aliases
+
+
+# --- S3 destinations + secret handling ---
+
+
+_S3_CONFIG = {
+    "bucket": "my-backups",
+    "region": "us-east-1",
+    "access_key_id": "AKIA1234",
+    "secret_access_key": "TOPSECRET",
+}
+
+
+@patch("app.services.destination_service._APP_SECRET", "test-secret-32bytes-padding-pad")
+async def test_create_s3_encrypts_secret(db_session, admin_user):
+    body = DestinationCreate(
+        alias="My S3", storage_type=StorageType.S3, config_data=dict(_S3_CONFIG)
+    )
+    result = await destination_service.create_destination(db_session, admin_user, body)
+
+    # Read schema must strip the secret — even though we just wrote it.
+    assert "secret_access_key" not in (result.config_data or {})
+    # Access key id IS still visible (it's an identifier, not a secret).
+    assert result.config_data["access_key_id"] == "AKIA1234"
+
+    # Inspect the raw row: stored secret is ciphertext, not the plaintext.
+    db_session.expire_all()
+    raw = await db_session.get(Destination, result.id)
+    assert raw.config_data["secret_access_key"] != "TOPSECRET"
+    assert raw.config_data["secret_access_key"]  # but not empty
+
+
+@patch("app.services.destination_service._APP_SECRET", "test-secret-32bytes-padding-pad")
+async def test_update_preserves_existing_secret_when_omitted(
+    db_session, admin_user
+):
+    body = DestinationCreate(
+        alias="My S3", storage_type=StorageType.S3, config_data=dict(_S3_CONFIG)
+    )
+    created = await destination_service.create_destination(db_session, admin_user, body)
+
+    raw_before = await db_session.get(Destination, created.id)
+    stored_secret = raw_before.config_data["secret_access_key"]
+
+    # Update bucket only — omit secret_access_key entirely.
+    from shared.schemas import DestinationUpdate
+    new_cfg = {k: v for k, v in _S3_CONFIG.items() if k != "secret_access_key"}
+    new_cfg["bucket"] = "new-bucket"
+    await destination_service.update_destination(
+        db_session, str(created.id),
+        DestinationUpdate(config_data=new_cfg),
+    )
+
+    db_session.expire_all()
+    raw_after = await db_session.get(Destination, created.id)
+    assert raw_after.config_data["bucket"] == "new-bucket"
+    # Stored secret unchanged — same ciphertext, same plaintext after decrypt.
+    assert raw_after.config_data["secret_access_key"] == stored_secret
+
+
+async def test_quota_field_round_trip(db_session, admin_user):
+    body = DestinationCreate(
+        alias="With Quota",
+        path=f"{tempfile.gettempdir()}/quota",
+        quota_bytes=10 * 1024**3,
+    )
+    result = await destination_service.create_destination(db_session, admin_user, body)
+    assert result.quota_bytes == 10 * 1024**3

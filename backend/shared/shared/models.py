@@ -104,6 +104,8 @@ class Destination(Base):
         Enum(StorageType), nullable=False, default=StorageType.LOCAL
     )
     path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    config_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    quota_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False

@@ -34,6 +34,7 @@ class TriggerType(str, enum.Enum):
 
 class StorageType(str, enum.Enum):
     LOCAL = "local"
+    S3 = "s3"
 
 
 class RepoPermission(enum.IntEnum):

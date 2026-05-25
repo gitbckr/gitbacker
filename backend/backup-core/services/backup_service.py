@@ -24,7 +24,9 @@ from services.common import resolve_credential, send_notifications
 from services.git_service import scrub_credentials
 from services.encryption import get_encryption_provider
 from services.notifications import NotificationEvent
-from shared.enums import ArchiveFormat, JobStatus, RepoStatus
+from shared.destination_stats import sum_destination_used_bytes
+from shared.storage_backends import StorageBackendError, get_storage_backend
+from shared.enums import ArchiveFormat, JobStatus, RepoStatus, StorageType
 from shared.models import BackupSnapshot
 
 logger = logging.getLogger(__name__)
@@ -100,12 +102,15 @@ def run_backup(session: Session, job_id: str) -> dict:
         session.commit()
         return {"error": "Destination not found"}
 
-    # Validate destination path
-    dest_path = Path(destination.path).resolve()
-    if not dest_path.is_absolute():
-        backup_job_repo.mark_failed(session, job, datetime.now(timezone.utc), None, "Invalid destination path")
+    # Build the storage backend for this destination (encrypted secrets decrypted here)
+    try:
+        backend = get_storage_backend(destination)
+    except (StorageBackendError, KeyError, ValueError) as e:
+        backup_job_repo.mark_failed(
+            session, job, datetime.now(timezone.utc), None, f"Storage backend error: {e}"
+        )
         session.commit()
-        return {"error": "Invalid destination path"}
+        return {"error": f"Storage backend error: {e}"}
 
     # Mark as running
     started_at = datetime.now(timezone.utc)
@@ -201,13 +206,8 @@ def run_backup(session: Session, job_id: str) -> dict:
                 encryption_key_id = enc_key.id
                 log_lines.append("Encryption complete")
 
-            # Move final file to destination
-            dest_dir = dest_path
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            final_path = dest_dir / archive_name
-            shutil.move(str(tmp_archive), str(final_path))
-
-            backup_size = final_path.stat().st_size
+            # Hand the final archive to the storage backend (local move or S3 upload)
+            backup_size = backend.upload(tmp_archive, archive_name)
             log_lines.append(f"Archive saved: {backup_size} bytes")
 
         now = datetime.now(timezone.utc)
@@ -257,27 +257,52 @@ def run_backup(session: Session, job_id: str) -> dict:
             ),
         )
     elif job.status == JobStatus.SUCCEEDED:
-        # Check disk space on destination
-        try:
-            usage = shutil.disk_usage(str(dest_path))
-            free_pct = (usage.free / usage.total) * 100
-            if free_pct < 10:
-                send_notifications(
-                    session,
-                    NotificationEvent(
-                        event_type="disk_space_low",
-                        title="Disk space low",
-                        repo_name=repo.name,
-                        repo_url=repo.url,
-                        message=(
-                            f"Destination '{destination.alias}' has "
-                            f"{free_pct:.1f}% free space "
-                            f"({usage.free // (1024 ** 3)} GB remaining)"
+        # Two independent capacity signals — LOCAL free-space % (existing)
+        # and any-type user-configured quota_bytes (new).
+        if destination.storage_type == StorageType.LOCAL:
+            try:
+                usage = shutil.disk_usage(str(destination.path))
+                free_pct = (usage.free / usage.total) * 100
+                if free_pct < 10:
+                    send_notifications(
+                        session,
+                        NotificationEvent(
+                            event_type="disk_space_low",
+                            title="Disk space low",
+                            repo_name=repo.name,
+                            repo_url=repo.url,
+                            message=(
+                                f"Destination '{destination.alias}' has "
+                                f"{free_pct:.1f}% free space "
+                                f"({usage.free // (1024 ** 3)} GB remaining)"
+                            ),
+                            timestamp=datetime.now(timezone.utc),
                         ),
-                        timestamp=datetime.now(timezone.utc),
-                    ),
-                )
-        except OSError:
-            pass  # Destination path may be remote / unmounted
+                    )
+            except OSError:
+                pass  # Destination path may be remote / unmounted
+
+        if destination.quota_bytes:
+            try:
+                used = sum_destination_used_bytes(session, destination.id)
+                pct = (used / destination.quota_bytes) * 100
+                if pct >= 90:
+                    send_notifications(
+                        session,
+                        NotificationEvent(
+                            event_type="disk_space_low",
+                            title="Storage quota nearly full",
+                            repo_name=repo.name,
+                            repo_url=repo.url,
+                            message=(
+                                f"Destination '{destination.alias}' is at "
+                                f"{pct:.1f}% of its {destination.quota_bytes // (1024 ** 3)} GB quota "
+                                f"({used // (1024 ** 3)} GB used)"
+                            ),
+                            timestamp=datetime.now(timezone.utc),
+                        ),
+                    )
+            except Exception as e:
+                logger.warning("Quota check failed for destination %s: %s", destination.id, e)
 
     return {"job_id": job_id, "status": job.status.value}
